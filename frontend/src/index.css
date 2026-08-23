@@ -1,0 +1,86 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --background: 240 5% 97%; /* #f7f7f8 soft gray page background */
+    --foreground: 240 10% 8%;
+    --card: 0 0% 100%; /* #ffffff clean white card layer */
+    --card-foreground: 240 10% 8%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 8%;
+    --primary: 240 10% 8%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 240 5% 92%; /* #eaebee nested box gray */
+    --secondary-foreground: 240 10% 8%;
+    --muted: 240 5% 92%;
+    --muted-foreground: 240 4% 45%;
+    --accent: 240 5% 90%;
+    --accent-foreground: 240 10% 8%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5% 86%; /* #dbdbe0 */
+    --input: 240 5% 86%;
+    --ring: 240 10% 8%;
+    --radius: 1rem;
+  }
+
+  .dark {
+    --background: 240 10% 3.9%; /* #09090b deep neutral canvas */
+    --foreground: 0 0% 98%;
+    --card: 240 6% 9.5%; /* #18181b clean distinct gray card layer */
+    --card-foreground: 0 0% 98%;
+    --popover: 240 6% 9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 240 10% 8%;
+    --secondary: 240 5% 15%; /* #242429 nested inner boxes and containers */
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 5% 15%;
+    --muted-foreground: 240 5% 65%;
+    --accent: 240 5% 18%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5% 18.5%; /* #2e2e34 hairline borders */
+    --input: 240 5% 18.5%;
+    --ring: 0 0% 98%;
+  }
+
+  * {
+    border-color: hsl(var(--border));
+  }
+
+  html, body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    min-height: 100vh;
+    font-family: 'Poppins', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 15px;
+    letter-spacing: -0.012em;
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  }
+}
+
+/* Poppins global font rules */
+h1, h2, h3, h4, h5, h6, button, input, select, textarea, span, p {
+  font-family: 'Poppins', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+/* Sleek minimal scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.25);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.45);
+}

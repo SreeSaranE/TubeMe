@@ -1,0 +1,13 @@
+.git
+.gitignore
+**/bin
+**/obj
+**/node_modules
+**/dist
+data
+downloads
+archives
+ChannelPhotos
+yt_sync.log
+yt-dlp-errors.log
+channel-photo-errors.log

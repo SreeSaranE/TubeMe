@@ -1,0 +1,16 @@
+services:
+  youtube-downloader:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: youtube-downloader
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./downloads:/downloads
+      - ./data:/app/data
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - DATA_DIR=/app/data
+      - OUTPUT_DIR=/downloads
