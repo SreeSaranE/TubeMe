@@ -154,11 +154,16 @@ export function ChannelsTab({
           </div>
 
           <div className="flex items-center justify-between sm:justify-end gap-3 text-sm text-muted-foreground">
+            {selectedChannels.length > 0 && (
+              <span className="font-mono text-xs bg-card text-foreground px-3 py-1.5 rounded-full border border-border font-medium animate-in fade-in duration-150">
+                {selectedChannels.length} selected
+              </span>
+            )}
             <Button
               variant="ghost"
               size="sm"
               onClick={toggleSelectAll}
-              className="h-10 px-3 text-sm text-muted-foreground hover:text-foreground"
+              className="h-10 px-3 text-sm text-muted-foreground hover:text-foreground shrink-0"
             >
               {selectedChannels.length === channels.length ? (
                 <CheckSquare className="h-4 w-4 mr-2 text-foreground" />
@@ -167,11 +172,6 @@ export function ChannelsTab({
               )}
               <span>{selectedChannels.length === channels.length ? 'Deselect All' : 'Select All'}</span>
             </Button>
-            {selectedChannels.length > 0 && (
-              <span className="font-mono text-xs bg-card text-foreground px-3 py-1.5 rounded-full border border-border font-medium">
-                {selectedChannels.length} selected
-              </span>
-            )}
           </div>
         </div>
       )}
