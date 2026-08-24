@@ -1,82 +1,42 @@
-using System;
 using System.IO;
-using System.Text.Json;
+using YoutubeDownloader.Data.Interfaces;
 using YoutubeDownloader.Models;
+using YoutubeDownloader.Services.Interfaces;
 
 namespace YoutubeDownloader.Services
 {
-    public class SettingsService
+    public class SettingsService : ISettingsService
     {
-        private readonly string _settingsFilePath;
-        private AppSettingsModel _settings;
-        private readonly object _lock = new();
+        private readonly ISettingsRepository _settingsRepository;
 
-        public SettingsService()
+        public SettingsService(ISettingsRepository settingsRepository)
         {
-            // Determine default directory paths based on environment
-            string dataDir = Environment.GetEnvironmentVariable("DATA_DIR") 
-                ?? Path.Combine(Directory.GetCurrentDirectory(), "data");
-            string outputDir = Environment.GetEnvironmentVariable("OUTPUT_DIR") 
-                ?? Path.Combine(Directory.GetCurrentDirectory(), "downloads");
+            _settingsRepository = settingsRepository;
+            var settings = _settingsRepository.Get();
 
-            Directory.CreateDirectory(dataDir);
-            Directory.CreateDirectory(outputDir);
+            // Ensure media directory and archive tracking file exist
+            Directory.CreateDirectory(settings.DataDir);
+            Directory.CreateDirectory(settings.OutputDir);
 
-            _settingsFilePath = Path.Combine(dataDir, "settings.json");
-
-            if (File.Exists(_settingsFilePath))
+            if (!File.Exists(settings.ArchiveFile))
             {
-                try
-                {
-                    string json = File.ReadAllText(_settingsFilePath);
-                    _settings = JsonSerializer.Deserialize<AppSettingsModel>(json) ?? new AppSettingsModel();
-                }
-                catch
-                {
-                    _settings = new AppSettingsModel();
-                }
-            }
-            else
-            {
-                _settings = new AppSettingsModel
-                {
-                    DataDir = dataDir,
-                    OutputDir = outputDir,
-                    ArchiveFile = Path.Combine(dataDir, "archives.txt"),
-                    ChannelsFile = Path.Combine(dataDir, "channels.txt")
-                };
-                SaveSettings(_settings);
-            }
-
-            // Ensure archive file exists
-            if (!File.Exists(_settings.ArchiveFile))
-            {
-                string? dir = Path.GetDirectoryName(_settings.ArchiveFile);
+                string? dir = Path.GetDirectoryName(settings.ArchiveFile);
                 if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
-                File.WriteAllText(_settings.ArchiveFile, "");
+                File.WriteAllText(settings.ArchiveFile, "");
             }
         }
 
         public AppSettingsModel GetSettings()
         {
-            lock (_lock)
-            {
-                return _settings;
-            }
+            return _settingsRepository.Get();
         }
 
         public void SaveSettings(AppSettingsModel newSettings)
         {
-            lock (_lock)
-            {
-                _settings = newSettings;
-                Directory.CreateDirectory(Path.GetDirectoryName(_settingsFilePath)!);
-                Directory.CreateDirectory(_settings.OutputDir);
-                Directory.CreateDirectory(_settings.DataDir);
+            Directory.CreateDirectory(newSettings.OutputDir);
+            Directory.CreateDirectory(newSettings.DataDir);
 
-                string json = JsonSerializer.Serialize(_settings, new JsonSerializerOptions { WriteIndented = true });
-                File.WriteAllText(_settingsFilePath, json);
-            }
+            _settingsRepository.Save(newSettings);
         }
     }
 }

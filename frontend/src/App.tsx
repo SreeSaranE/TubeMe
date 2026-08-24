@@ -119,11 +119,11 @@ function AppContent() {
   ).length;
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col font-sans antialiased selection:bg-foreground selection:text-background">
+    <div className="min-h-screen bg-background text-foreground flex flex-col font-sans antialiased bg-ambient-glow selection:bg-foreground selection:text-background">
       {/* Floating Island Navbar */}
       <Navbar activeDownloadsCount={activeDownloadsCount} />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pb-20 sm:pb-28">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pb-24 sm:pb-32">
         <Routes>
           <Route
             path="/"

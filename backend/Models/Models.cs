@@ -81,7 +81,7 @@ namespace YoutubeDownloader.Models
 
     public class ChannelSyncRequest
     {
-        public List<string>? ChannelIds { get; set; } // Null or empty = sync all channels
+        public List<string>? ChannelIds { get; set; }
         public string? Resolution { get; set; }
         public int? DaysLimit { get; set; }
         public bool? Subtitles { get; set; }
@@ -90,5 +90,20 @@ namespace YoutubeDownloader.Models
     public class AddChannelRequest
     {
         public string Url { get; set; } = string.Empty;
+    }
+
+    public class FileInfoItem
+    {
+        public string Name { get; set; } = string.Empty;
+        public string Path { get; set; } = string.Empty;
+        public bool IsDirectory { get; set; }
+        public long Size { get; set; }
+        public DateTime LastModified { get; set; }
+    }
+
+    public class YtDlpChannelMetadata
+    {
+        public string Name { get; set; } = string.Empty;
+        public string AvatarUrl { get; set; } = string.Empty;
     }
 }

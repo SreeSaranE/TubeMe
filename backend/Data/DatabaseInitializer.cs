@@ -1,0 +1,105 @@
+using System;
+using System.IO;
+using Microsoft.Data.Sqlite;
+using YoutubeDownloader.Data.Interfaces;
+
+namespace YoutubeDownloader.Data
+{
+    public class DatabaseInitializer : IDatabaseInitializer
+    {
+        private readonly IDbConnectionFactory _connectionFactory;
+        private readonly object _lock = new();
+
+        public DatabaseInitializer(IDbConnectionFactory connectionFactory)
+        {
+            _connectionFactory = connectionFactory;
+        }
+
+        public void Initialize()
+        {
+            lock (_lock)
+            {
+                using var conn = _connectionFactory.CreateConnection();
+                using var cmd = conn.CreateCommand();
+
+                // Enable WAL mode for high concurrency
+                cmd.CommandText = "PRAGMA journal_mode = WAL;";
+                cmd.ExecuteNonQuery();
+
+                // 1. Channels Table
+                cmd.CommandText = @"
+                    CREATE TABLE IF NOT EXISTS channels (
+                        id TEXT PRIMARY KEY,
+                        url TEXT NOT NULL,
+                        name TEXT NOT NULL,
+                        avatar_url TEXT,
+                        last_synced_at TEXT,
+                        created_at TEXT NOT NULL,
+                        is_syncing INTEGER NOT NULL DEFAULT 0
+                    );";
+                cmd.ExecuteNonQuery();
+
+                // 2. Settings Table
+                cmd.CommandText = @"
+                    CREATE TABLE IF NOT EXISTS settings (
+                        id INTEGER PRIMARY KEY CHECK (id = 1),
+                        output_dir TEXT NOT NULL,
+                        data_dir TEXT NOT NULL,
+                        archive_file TEXT NOT NULL,
+                        channels_file TEXT NOT NULL,
+                        default_resolution TEXT NOT NULL,
+                        include_subtitles INTEGER NOT NULL DEFAULT 1,
+                        subtitle_langs TEXT NOT NULL,
+                        days_limit INTEGER NOT NULL DEFAULT 4,
+                        max_concurrent_jobs INTEGER NOT NULL DEFAULT 5,
+                        concurrent_fragments INTEGER NOT NULL DEFAULT 4
+                    );";
+                cmd.ExecuteNonQuery();
+
+                // 3. Downloads Table
+                cmd.CommandText = @"
+                    CREATE TABLE IF NOT EXISTS downloads (
+                        id TEXT PRIMARY KEY,
+                        url TEXT NOT NULL,
+                        title TEXT,
+                        uploader TEXT,
+                        thumbnail TEXT,
+                        format TEXT,
+                        resolution TEXT,
+                        type TEXT,
+                        status TEXT,
+                        progress_percentage REAL DEFAULT 0,
+                        download_speed TEXT,
+                        eta TEXT,
+                        error TEXT,
+                        logs TEXT,
+                        created_at TEXT NOT NULL,
+                        completed_at TEXT
+                    );";
+                cmd.ExecuteNonQuery();
+
+                // Seed default settings row if empty
+                cmd.CommandText = "SELECT COUNT(*) FROM settings;";
+                long count = (long)(cmd.ExecuteScalar() ?? 0);
+                if (count == 0)
+                {
+                    string dataDir = Path.GetDirectoryName(_connectionFactory.DbPath) 
+                        ?? Path.Combine(Directory.GetCurrentDirectory(), "data");
+                    string outputDir = Environment.GetEnvironmentVariable("OUTPUT_DIR") 
+                        ?? Path.Combine(Directory.GetCurrentDirectory(), "downloads");
+
+                    cmd.CommandText = @"
+                        INSERT INTO settings (id, output_dir, data_dir, archive_file, channels_file, default_resolution, include_subtitles, subtitle_langs, days_limit, max_concurrent_jobs, concurrent_fragments)
+                        VALUES (1, @outputDir, @dataDir, @archiveFile, @channelsFile, '1080', 1, 'en.*,ta.*', 4, 5, 4);";
+
+                    cmd.Parameters.Clear();
+                    cmd.Parameters.AddWithValue("@outputDir", outputDir);
+                    cmd.Parameters.AddWithValue("@dataDir", dataDir);
+                    cmd.Parameters.AddWithValue("@archiveFile", Path.Combine(dataDir, "archives.txt"));
+                    cmd.Parameters.AddWithValue("@channelsFile", Path.Combine(dataDir, "channels.txt"));
+                    cmd.ExecuteNonQuery();
+                }
+            }
+        }
+    }
+}

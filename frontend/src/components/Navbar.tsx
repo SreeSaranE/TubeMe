@@ -18,16 +18,16 @@ export function Navbar({ activeDownloadsCount }: NavbarProps) {
   ];
 
   return (
-    <header className="sticky top-5 z-50 w-full flex justify-center px-4 pointer-events-none mb-8 sm:mb-10">
-      {/* Floating Island / Pill Navbar */}
-      <nav className="pointer-events-auto flex items-center gap-1.5 sm:gap-2 p-2 rounded-full border border-border bg-card/90 backdrop-blur-2xl shadow-xl shadow-black/5 dark:shadow-black/40 transition-all duration-200">
+    <header className="sticky top-5 z-50 w-full flex justify-center px-4 pointer-events-none mb-8 sm:mb-12">
+      {/* Floating Glassmorphic Pill Navbar */}
+      <nav className="pointer-events-auto flex items-center gap-1.5 sm:gap-2 p-2 rounded-full border border-border/80 bg-card/80 backdrop-blur-2xl shadow-xl shadow-black/5 dark:shadow-black/50 transition-all duration-300">
         {/* TubeMe Brand Logo & Name */}
         <Link
           to="/"
-          className="flex items-center gap-2.5 pl-3 pr-2.5 py-1 cursor-pointer select-none group"
+          className="flex items-center gap-2.5 pl-3.5 pr-2.5 py-1 cursor-pointer select-none group"
           title="TubeMe Homepage"
         >
-          <div className="h-7 w-7 rounded-xl bg-foreground text-background flex items-center justify-center p-1.5 shadow-xs transition-transform duration-200 group-hover:scale-105">
+          <div className="h-7 w-7 rounded-xl bg-foreground text-background flex items-center justify-center p-1.5 shadow-sm transition-transform duration-300 group-hover:scale-110">
             <svg
               viewBox="0 0 24 24"
               fill="currentColor"
@@ -43,7 +43,7 @@ export function Navbar({ activeDownloadsCount }: NavbarProps) {
         </Link>
 
         {/* Hairline Divider */}
-        <div className="h-5 w-[1px] bg-border mx-0.5" />
+        <div className="h-5 w-[1px] bg-border/80 mx-0.5" />
 
         {/* Tab Links */}
         {tabs.map((tab) => {
@@ -57,10 +57,10 @@ export function Navbar({ activeDownloadsCount }: NavbarProps) {
             <Link
               key={tab.path}
               to={tab.path}
-              className={`relative flex items-center gap-2.5 px-3.5 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-medium transition-all duration-200 cursor-pointer select-none ${
+              className={`relative flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-medium transition-all duration-200 cursor-pointer select-none ${
                 isActive
                   ? 'bg-foreground text-background font-semibold shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-secondary/80'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-secondary/70'
               }`}
             >
               <Icon className="h-4 w-4 shrink-0" />

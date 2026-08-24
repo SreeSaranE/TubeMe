@@ -1,25 +1,44 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using YoutubeDownloader.Data;
+using YoutubeDownloader.Data.Interfaces;
+using YoutubeDownloader.Data.Repositories;
 using YoutubeDownloader.Hubs;
 using YoutubeDownloader.Services;
+using YoutubeDownloader.Services.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services
+// Add API controllers and SignalR
 builder.Services.AddControllers();
 builder.Services.AddSignalR();
 
-// Register Singleton services
-builder.Services.AddSingleton<SettingsService>();
-builder.Services.AddSingleton<YtDlpService>();
-builder.Services.AddSingleton<ChannelService>();
+// ==========================================
+// 1. DATA / REPOSITORY LAYER
+// ==========================================
+builder.Services.AddSingleton<IDbConnectionFactory, SqliteDbConnectionFactory>();
+builder.Services.AddSingleton<IDatabaseInitializer, DatabaseInitializer>();
+builder.Services.AddSingleton<IChannelRepository, ChannelRepository>();
+builder.Services.AddSingleton<ISettingsRepository, SettingsRepository>();
+builder.Services.AddSingleton<IDownloadRepository, DownloadRepository>();
 
-// Register DownloadQueueManager as both HostedService and Singleton
-builder.Services.AddSingleton<DownloadQueueManager>();
-builder.Services.AddHostedService(sp => sp.GetRequiredService<DownloadQueueManager>());
+// ==========================================
+// 2. SERVICE LAYER
+// ==========================================
+builder.Services.AddSingleton<ISettingsService, SettingsService>();
+builder.Services.AddSingleton<IYtDlpService, YtDlpService>();
+builder.Services.AddSingleton<IChannelService, ChannelService>();
+builder.Services.AddSingleton<IMediaFileService, MediaFileService>();
 
-// Configure CORS for development (React dev server on localhost:3000)
+// Register DownloadQueueService as Singleton, Interface implementation, and Background HostedService
+builder.Services.AddSingleton<DownloadQueueService>();
+builder.Services.AddSingleton<IDownloadQueueService>(sp => sp.GetRequiredService<DownloadQueueService>());
+builder.Services.AddHostedService(sp => sp.GetRequiredService<DownloadQueueService>());
+
+// ==========================================
+// CORS Configuration for Development
+// ==========================================
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("CorsPolicy", policy =>
@@ -33,18 +52,25 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+// Initialize SQLite Schema & Default Configuration
+var dbInitializer = app.Services.GetRequiredService<IDatabaseInitializer>();
+dbInitializer.Initialize();
+
 app.UseCors("CorsPolicy");
 
-// Enable static files (React frontend served from wwwroot in production/container)
+// Enable Static Files (React frontend served from wwwroot in production)
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
 app.UseRouting();
 
+// ==========================================
+// 3. API LAYER ENDPOINTS & HUBS
+// ==========================================
 app.MapControllers();
 app.MapHub<DownloadHub>("/hubs/downloadHub");
 
-// Fallback to index.html for Single Page Application (React) client-side routing
+// Single Page Application Fallback for React Router
 app.MapFallbackToFile("index.html");
 
 app.Run();

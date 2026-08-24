@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using YoutubeDownloader.Models;
-using YoutubeDownloader.Services;
+using YoutubeDownloader.Services.Interfaces;
 
 namespace YoutubeDownloader.Controllers
 {
@@ -8,9 +8,9 @@ namespace YoutubeDownloader.Controllers
     [Route("api/[controller]")]
     public class SettingsController : ControllerBase
     {
-        private readonly SettingsService _settingsService;
+        private readonly ISettingsService _settingsService;
 
-        public SettingsController(SettingsService settingsService)
+        public SettingsController(ISettingsService settingsService)
         {
             _settingsService = settingsService;
         }
@@ -21,10 +21,10 @@ namespace YoutubeDownloader.Controllers
             return Ok(_settingsService.GetSettings());
         }
 
-        [HttpPut]
-        public ActionResult<AppSettingsModel> SaveSettings([FromBody] AppSettingsModel settings)
+        [HttpPost]
+        public ActionResult<AppSettingsModel> SaveSettings([FromBody] AppSettingsModel newSettings)
         {
-            _settingsService.SaveSettings(settings);
+            _settingsService.SaveSettings(newSettings);
             return Ok(_settingsService.GetSettings());
         }
     }

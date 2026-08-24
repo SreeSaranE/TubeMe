@@ -8,16 +8,11 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using YoutubeDownloader.Models;
+using YoutubeDownloader.Services.Interfaces;
 
 namespace YoutubeDownloader.Services
 {
-    public class YtDlpChannelMetadata
-    {
-        public string Name { get; set; } = string.Empty;
-        public string AvatarUrl { get; set; } = string.Empty;
-    }
-
-    public class YtDlpService
+    public class YtDlpService : IYtDlpService
     {
         private static readonly Regex ProgressRegex = new(
             @"\[download\]\s+(?<percent>[\d\.]+)%\s+of\s+~?(?<size>[\w\.\s]+)\s+at\s+(?<speed>[\w\.\/]+)\s+ETA\s+(?<eta>[\d:]+)",

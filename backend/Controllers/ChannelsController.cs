@@ -3,7 +3,7 @@ using System.IO;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using YoutubeDownloader.Models;
-using YoutubeDownloader.Services;
+using YoutubeDownloader.Services.Interfaces;
 
 namespace YoutubeDownloader.Controllers
 {
@@ -11,17 +11,17 @@ namespace YoutubeDownloader.Controllers
     [Route("api/[controller]")]
     public class ChannelsController : ControllerBase
     {
-        private readonly ChannelService _channelService;
-        private readonly DownloadQueueManager _queueManager;
-        private readonly SettingsService _settingsService;
+        private readonly IChannelService _channelService;
+        private readonly IDownloadQueueService _queueService;
+        private readonly ISettingsService _settingsService;
 
         public ChannelsController(
-            ChannelService channelService,
-            DownloadQueueManager queueManager,
-            SettingsService settingsService)
+            IChannelService channelService,
+            IDownloadQueueService queueService,
+            ISettingsService settingsService)
         {
             _channelService = channelService;
-            _queueManager = queueManager;
+            _queueService = queueService;
             _settingsService = settingsService;
         }
 
@@ -50,7 +50,7 @@ namespace YoutubeDownloader.Controllers
         [HttpPost("sync")]
         public ActionResult<List<DownloadItem>> SyncChannels([FromBody] ChannelSyncRequest request)
         {
-            var queued = _queueManager.EnqueueChannelSync(request);
+            var queued = _queueService.EnqueueChannelSync(request);
             return Ok(queued);
         }
 

@@ -1,38 +1,59 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Hosting;
+using YoutubeDownloader.Data.Interfaces;
 using YoutubeDownloader.Hubs;
 using YoutubeDownloader.Models;
+using YoutubeDownloader.Services.Interfaces;
 
 namespace YoutubeDownloader.Services
 {
-    public class DownloadQueueManager : BackgroundService
+    public class DownloadQueueService : BackgroundService, IDownloadQueueService
     {
         private readonly ConcurrentQueue<DownloadItem> _pendingQueue = new();
         private readonly ConcurrentDictionary<string, DownloadItem> _allDownloads = new();
         private readonly ConcurrentDictionary<string, CancellationTokenSource> _ctsMap = new();
 
-        private readonly SettingsService _settingsService;
-        private readonly ChannelService _channelService;
-        private readonly YtDlpService _ytDlpService;
+        private readonly IDownloadRepository _downloadRepository;
+        private readonly ISettingsService _settingsService;
+        private readonly IChannelService _channelService;
+        private readonly IYtDlpService _ytDlpService;
         private readonly IHubContext<DownloadHub> _hubContext;
 
-        public DownloadQueueManager(
-            SettingsService settingsService,
-            ChannelService channelService,
-            YtDlpService ytDlpService,
+        public DownloadQueueService(
+            IDownloadRepository downloadRepository,
+            ISettingsService settingsService,
+            IChannelService channelService,
+            IYtDlpService ytDlpService,
             IHubContext<DownloadHub> hubContext)
         {
+            _downloadRepository = downloadRepository;
             _settingsService = settingsService;
             _channelService = channelService;
             _ytDlpService = ytDlpService;
             _hubContext = hubContext;
+
+            // Load existing downloads from repository
+            try
+            {
+                var existing = _downloadRepository.GetAll();
+                foreach (var item in existing)
+                {
+                    if (item.Status == "Downloading" || item.Status == "Queued")
+                    {
+                        item.Status = "Cancelled";
+                        item.Error = "Interrupted by server restart";
+                        _downloadRepository.Save(item);
+                    }
+                    _allDownloads[item.Id] = item;
+                }
+            }
+            catch { }
         }
 
         public DownloadItem EnqueueDownload(StartDownloadRequest req)
@@ -57,6 +78,7 @@ namespace YoutubeDownloader.Services
 
             _allDownloads[item.Id] = item;
             _pendingQueue.Enqueue(item);
+            _downloadRepository.Save(item);
 
             _ = BroadcastUpdateAsync(item);
             return item;
@@ -90,6 +112,7 @@ namespace YoutubeDownloader.Services
 
                 _allDownloads[item.Id] = item;
                 _pendingQueue.Enqueue(item);
+                _downloadRepository.Save(item);
                 queuedItems.Add(item);
 
                 _ = BroadcastUpdateAsync(item);
@@ -116,6 +139,7 @@ namespace YoutubeDownloader.Services
                 if (item.Status == "Queued")
                 {
                     item.Status = "Cancelled";
+                    _downloadRepository.Save(item);
                     _ = BroadcastUpdateAsync(item);
                     return true;
                 }
@@ -123,6 +147,7 @@ namespace YoutubeDownloader.Services
                 {
                     cts.Cancel();
                     item.Status = "Cancelled";
+                    _downloadRepository.Save(item);
                     _ = BroadcastUpdateAsync(item);
                     return true;
                 }
@@ -141,6 +166,8 @@ namespace YoutubeDownloader.Services
             {
                 _allDownloads.TryRemove(key, out _);
             }
+
+            _downloadRepository.ClearFinished();
             return true;
         }
 
@@ -165,6 +192,7 @@ namespace YoutubeDownloader.Services
                         try
                         {
                             item.Status = "Downloading";
+                            _downloadRepository.Save(item);
                             await BroadcastUpdateAsync(item);
 
                             await _ytDlpService.ExecuteDownloadAsync(
@@ -207,6 +235,7 @@ namespace YoutubeDownloader.Services
                                 }
                             }
 
+                            _downloadRepository.Save(item);
                             await BroadcastUpdateAsync(item);
                         }
                     }, cts.Token);

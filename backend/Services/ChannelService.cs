@@ -1,83 +1,39 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.Json;
 using System.Threading.Tasks;
+using YoutubeDownloader.Data.Interfaces;
 using YoutubeDownloader.Models;
+using YoutubeDownloader.Services.Interfaces;
 
 namespace YoutubeDownloader.Services
 {
-    public class ChannelService
+    public class ChannelService : IChannelService
     {
-        private readonly SettingsService _settingsService;
-        private readonly YtDlpService _ytDlpService;
-        private readonly string _channelsJsonPath;
+        private readonly IChannelRepository _channelRepository;
+        private readonly ISettingsService _settingsService;
+        private readonly IYtDlpService _ytDlpService;
         private readonly string _avatarsDir;
-        private readonly object _lock = new();
-        private List<ChannelModel> _channels = new();
 
-        public ChannelService(SettingsService settingsService, YtDlpService ytDlpService)
+        public ChannelService(
+            IChannelRepository channelRepository,
+            ISettingsService settingsService,
+            IYtDlpService ytDlpService)
         {
+            _channelRepository = channelRepository;
             _settingsService = settingsService;
             _ytDlpService = ytDlpService;
-            var settings = _settingsService.GetSettings();
 
-            _channelsJsonPath = Path.Combine(settings.DataDir, "channels.json");
+            var settings = _settingsService.GetSettings();
             _avatarsDir = Path.Combine(settings.DataDir, "ChannelPhotos");
             Directory.CreateDirectory(_avatarsDir);
-
-            LoadChannels();
-        }
-
-        private void LoadChannels()
-        {
-            lock (_lock)
-            {
-                if (File.Exists(_channelsJsonPath))
-                {
-                    try
-                    {
-                        string json = File.ReadAllText(_channelsJsonPath);
-                        _channels = JsonSerializer.Deserialize<List<ChannelModel>>(json) ?? new List<ChannelModel>();
-                        return;
-                    }
-                    catch { }
-                }
-
-                // Fallback to channels.txt if channels.json does not exist
-                var settings = _settingsService.GetSettings();
-                if (File.Exists(settings.ChannelsFile))
-                {
-                    var lines = File.ReadAllLines(settings.ChannelsFile);
-                    foreach (var line in lines)
-                    {
-                        var trimmed = line.Trim();
-                        if (!string.IsNullOrWhiteSpace(trimmed) && !trimmed.StartsWith("#"))
-                        {
-                            var id = GetChannelIdFromUrl(trimmed);
-                            _channels.Add(new ChannelModel
-                            {
-                                Id = id,
-                                Url = trimmed,
-                                Name = ExtractHandleFromUrl(trimmed),
-                                CreatedAt = DateTime.UtcNow
-                            });
-                        }
-                    }
-                    SaveChannelsInternal();
-                }
-            }
         }
 
         public List<ChannelModel> GetChannels()
         {
-            lock (_lock)
-            {
-                return _channels.ToList();
-            }
+            return _channelRepository.GetAll();
         }
 
         public async Task<ChannelModel> AddChannelAsync(string url)
@@ -88,11 +44,8 @@ namespace YoutubeDownloader.Services
 
             string id = GetChannelIdFromUrl(cleanUrl);
 
-            lock (_lock)
-            {
-                var existing = _channels.FirstOrDefault(c => c.Id == id || c.Url.Equals(cleanUrl, StringComparison.OrdinalIgnoreCase));
-                if (existing != null) return existing;
-            }
+            var existing = _channelRepository.GetById(id);
+            if (existing != null) return existing;
 
             var channel = new ChannelModel
             {
@@ -102,11 +55,7 @@ namespace YoutubeDownloader.Services
                 CreatedAt = DateTime.UtcNow
             };
 
-            lock (_lock)
-            {
-                _channels.Add(channel);
-                SaveChannelsInternal();
-            }
+            _channelRepository.Upsert(channel);
 
             // Fetch channel metadata and avatar asynchronously in background
             _ = Task.Run(async () =>
@@ -119,28 +68,13 @@ namespace YoutubeDownloader.Services
 
         public bool RemoveChannel(string id)
         {
-            lock (_lock)
-            {
-                var channel = _channels.FirstOrDefault(c => c.Id == id);
-                if (channel != null)
-                {
-                    _channels.Remove(channel);
-                    SaveChannelsInternal();
-                    return true;
-                }
-                return false;
-            }
+            return _channelRepository.Delete(id);
         }
 
         public async Task RefreshAllMetadataAsync()
         {
-            List<ChannelModel> channelsCopy;
-            lock (_lock)
-            {
-                channelsCopy = _channels.ToList();
-            }
-
-            foreach (var channel in channelsCopy)
+            var channels = _channelRepository.GetAll();
+            foreach (var channel in channels)
             {
                 await FetchChannelMetadataAsync(channel);
             }
@@ -153,12 +87,9 @@ namespace YoutubeDownloader.Services
                 var info = await _ytDlpService.GetChannelMetadataAsync(channel.Url, _avatarsDir);
                 if (info != null)
                 {
-                    lock (_lock)
-                    {
-                        if (!string.IsNullOrEmpty(info.Name)) channel.Name = info.Name;
-                        if (!string.IsNullOrEmpty(info.AvatarUrl)) channel.AvatarUrl = info.AvatarUrl;
-                        SaveChannelsInternal();
-                    }
+                    if (!string.IsNullOrEmpty(info.Name)) channel.Name = info.Name;
+                    if (!string.IsNullOrEmpty(info.AvatarUrl)) channel.AvatarUrl = info.AvatarUrl;
+                    _channelRepository.Upsert(channel);
                 }
             }
             catch { }
@@ -166,44 +97,12 @@ namespace YoutubeDownloader.Services
 
         public void UpdateLastSynced(string channelId)
         {
-            lock (_lock)
-            {
-                var ch = _channels.FirstOrDefault(c => c.Id == channelId);
-                if (ch != null)
-                {
-                    ch.LastSyncedAt = DateTime.UtcNow;
-                    ch.IsSyncing = false;
-                    SaveChannelsInternal();
-                }
-            }
+            _channelRepository.UpdateSyncState(channelId, false, DateTime.UtcNow);
         }
 
         public void SetIsSyncing(string channelId, bool isSyncing)
         {
-            lock (_lock)
-            {
-                var ch = _channels.FirstOrDefault(c => c.Id == channelId);
-                if (ch != null)
-                {
-                    ch.IsSyncing = isSyncing;
-                    SaveChannelsInternal();
-                }
-            }
-        }
-
-        private void SaveChannelsInternal()
-        {
-            try
-            {
-                string json = JsonSerializer.Serialize(_channels, new JsonSerializerOptions { WriteIndented = true });
-                File.WriteAllText(_channelsJsonPath, json);
-
-                // Also update channels.txt for compatibility
-                var settings = _settingsService.GetSettings();
-                var lines = _channels.Select(c => c.Url).ToList();
-                File.WriteAllLines(settings.ChannelsFile, lines);
-            }
-            catch { }
+            _channelRepository.UpdateSyncState(channelId, isSyncing);
         }
 
         private static string GetChannelIdFromUrl(string url)

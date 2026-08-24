@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using Microsoft.AspNetCore.Mvc;
 using YoutubeDownloader.Models;
-using YoutubeDownloader.Services;
+using YoutubeDownloader.Services.Interfaces;
 
 namespace YoutubeDownloader.Controllers
 {
@@ -9,39 +9,39 @@ namespace YoutubeDownloader.Controllers
     [Route("api/[controller]")]
     public class DownloadsController : ControllerBase
     {
-        private readonly DownloadQueueManager _queueManager;
+        private readonly IDownloadQueueService _queueService;
 
-        public DownloadsController(DownloadQueueManager queueManager)
+        public DownloadsController(IDownloadQueueService queueService)
         {
-            _queueManager = queueManager;
+            _queueService = queueService;
         }
 
         [HttpGet]
         public ActionResult<List<DownloadItem>> GetDownloads()
         {
-            return Ok(_queueManager.GetAllDownloads());
+            return Ok(_queueService.GetAllDownloads());
         }
 
-        [HttpPost("start")]
+        [HttpPost]
         public ActionResult<DownloadItem> StartDownload([FromBody] StartDownloadRequest request)
         {
-            if (string.IsNullOrWhiteSpace(request.Url)) return BadRequest("URL is required.");
-            var item = _queueManager.EnqueueDownload(request);
+            if (string.IsNullOrWhiteSpace(request.Url)) return BadRequest("URL cannot be empty.");
+            var item = _queueService.EnqueueDownload(request);
             return Ok(item);
         }
 
         [HttpPost("{id}/cancel")]
         public IActionResult CancelDownload(string id)
         {
-            bool success = _queueManager.CancelDownload(id);
-            if (!success) return NotFound();
+            bool cancelled = _queueService.CancelDownload(id);
+            if (!cancelled) return NotFound();
             return Ok();
         }
 
-        [HttpDelete("clear")]
+        [HttpPost("clear-history")]
         public IActionResult ClearHistory()
         {
-            _queueManager.ClearHistory();
+            _queueService.ClearHistory();
             return Ok();
         }
     }

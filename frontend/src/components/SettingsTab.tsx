@@ -64,91 +64,98 @@ export function SettingsTab({ settings, onSettingsSaved }: SettingsTabProps) {
   };
 
   return (
-    <div className="space-y-8 max-w-4xl mx-auto">
-      {/* Header Card */}
-      <div className="rounded-3xl border border-border bg-card p-6 sm:p-8 shadow-xs flex flex-row items-center justify-between">
-        <div className="space-y-1.5">
-          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground flex items-center gap-3">
-            <Settings className="h-7 w-7 text-foreground" /> Settings & Configuration
-          </h2>
-          <p className="text-sm sm:text-base text-muted-foreground">
-            Manage output paths, concurrency limits, and default download rules.
+    <div className="space-y-10 max-w-4xl mx-auto">
+      {/* Editorial Settings Header Card */}
+      <div className="rounded-3xl border border-border/80 bg-card/80 backdrop-blur-xl p-8 sm:p-10 shadow-sm flex flex-row items-center justify-between">
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-mono tracking-widest uppercase text-muted-foreground bg-secondary/80 px-3 py-1 rounded-full border border-border/60">
+              System Configuration
+            </span>
+          </div>
+
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-semibold tracking-tight text-foreground leading-[1.15]">
+            Settings
+          </h1>
+
+          <p className="text-sm sm:text-base text-muted-foreground font-normal leading-relaxed">
+            Manage storage directory paths, yt-dlp concurrency limits, and default download rules.
           </p>
         </div>
 
         {savedSuccess && (
-          <span className="text-xs font-mono font-medium text-foreground bg-secondary border border-border px-4 py-2 rounded-full flex items-center gap-2 animate-in fade-in duration-200">
-            <Check className="h-4 w-4" /> Saved
+          <span className="text-xs font-mono font-medium text-foreground bg-secondary border border-border/80 px-4 py-2 rounded-full flex items-center gap-2 animate-in fade-in duration-200 shadow-xs">
+            <Check className="h-4 w-4 text-emerald-500" /> Saved
           </span>
         )}
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Directories */}
-        <div className="rounded-3xl border border-border bg-card p-6 sm:p-8 shadow-xs space-y-5">
-          <div className="flex items-center gap-2.5 border-b border-border/70 pb-4">
+      <form onSubmit={handleSubmit} className="space-y-8">
+        {/* Storage Paths Group */}
+        <div className="rounded-3xl border border-border/80 bg-card/80 backdrop-blur-xl p-8 sm:p-10 shadow-sm space-y-6">
+          <div className="flex items-center gap-3 border-b border-border/70 pb-4">
             <Folder className="h-5 w-5 text-foreground" />
             <h3 className="text-sm sm:text-base font-semibold uppercase tracking-wider text-foreground font-mono">
               Directories & Storage Paths
             </h3>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-sm">
-            <div className="space-y-1.5">
-              <label className="block font-medium text-foreground">Output Media Directory</label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
+            <div className="space-y-2">
+              <label className="block font-medium text-foreground text-xs uppercase tracking-wider font-mono">Output Media Directory</label>
               <Input
                 type="text"
                 name="outputDir"
                 value={formData.outputDir}
                 onChange={handleChange}
-                className="font-mono h-11 text-xs bg-secondary/60 border-border"
+                className="font-mono h-11 text-xs bg-secondary/60 border-border/80 rounded-xl"
               />
-              <span className="text-xs text-muted-foreground block">Destination folder for videos</span>
+              <span className="text-xs text-muted-foreground block opacity-80">Destination folder for downloaded videos</span>
             </div>
 
-            <div className="space-y-1.5">
-              <label className="block font-medium text-foreground">Data Storage Directory</label>
+            <div className="space-y-2">
+              <label className="block font-medium text-foreground text-xs uppercase tracking-wider font-mono">Data Storage Directory</label>
               <Input
                 type="text"
                 name="dataDir"
                 value={formData.dataDir}
                 onChange={handleChange}
-                className="font-mono h-11 text-xs bg-secondary/60 border-border"
+                className="font-mono h-11 text-xs bg-secondary/60 border-border/80 rounded-xl"
               />
-              <span className="text-xs text-muted-foreground block">Stores channels, config & avatars</span>
+              <span className="text-xs text-muted-foreground block opacity-80">Stores channels, config & cached metadata</span>
             </div>
 
-            <div className="md:col-span-2 space-y-1.5">
-              <label className="block font-medium text-foreground">Archive File Path</label>
+            <div className="md:col-span-2 space-y-2">
+              <label className="block font-medium text-foreground text-xs uppercase tracking-wider font-mono">Archive History File</label>
               <Input
                 type="text"
                 name="archiveFile"
                 value={formData.archiveFile}
                 onChange={handleChange}
-                className="font-mono h-11 text-xs bg-secondary/60 border-border"
+                className="font-mono h-11 text-xs bg-secondary/60 border-border/80 rounded-xl"
               />
-              <span className="text-xs text-muted-foreground block">yt-dlp download history archive</span>
+              <span className="text-xs text-muted-foreground block opacity-80">yt-dlp download history archive tracking duplicate prevention</span>
             </div>
           </div>
         </div>
 
-        {/* Default Rules */}
-        <div className="rounded-3xl border border-border bg-card p-6 sm:p-8 shadow-xs space-y-5">
-          <div className="flex items-center gap-2.5 border-b border-border/70 pb-4">
+        {/* Default Rules Group */}
+        <div className="rounded-3xl border border-border/80 bg-card/80 backdrop-blur-xl p-8 sm:p-10 shadow-sm space-y-6">
+          <div className="flex items-center gap-3 border-b border-border/70 pb-4">
             <Shield className="h-5 w-5 text-foreground" />
             <h3 className="text-sm sm:text-base font-semibold uppercase tracking-wider text-foreground font-mono">
               Default Download Rules
             </h3>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-sm">
-            <div className="space-y-1.5">
-              <label className="block font-medium text-foreground">Default Resolution Cap</label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
+            <div className="space-y-2">
+              <label className="block font-medium text-foreground text-xs uppercase tracking-wider font-mono">Default Resolution Cap</label>
               <select
                 name="defaultResolution"
                 value={formData.defaultResolution}
                 onChange={handleChange}
-                className="w-full bg-secondary/60 border border-border rounded-xl px-4 py-2.5 text-foreground text-sm focus:ring-1 focus:ring-ring"
+                className="w-full bg-secondary/60 border border-border/80 rounded-xl px-4 py-2.5 text-foreground text-sm focus:ring-1.5 focus:ring-ring"
               >
                 <option value="1080">1080p (Full HD)</option>
                 <option value="720">720p (HD)</option>
@@ -157,8 +164,8 @@ export function SettingsTab({ settings, onSettingsSaved }: SettingsTabProps) {
               </select>
             </div>
 
-            <div className="space-y-1.5">
-              <label className="block font-medium text-foreground">Channel Sync Date Range (Days)</label>
+            <div className="space-y-2">
+              <label className="block font-medium text-foreground text-xs uppercase tracking-wider font-mono">Channel Sync Date Limit (Days)</label>
               <Input
                 type="number"
                 name="daysLimit"
@@ -166,26 +173,26 @@ export function SettingsTab({ settings, onSettingsSaved }: SettingsTabProps) {
                 onChange={handleChange}
                 min={1}
                 max={365}
-                className="h-11 text-sm bg-secondary/60 border-border"
+                className="h-11 text-sm bg-secondary/60 border-border/80 rounded-xl"
               />
             </div>
 
-            <div className="space-y-1.5">
-              <label className="block font-medium text-foreground">Subtitle Languages</label>
+            <div className="space-y-2">
+              <label className="block font-medium text-foreground text-xs uppercase tracking-wider font-mono">Subtitle Languages</label>
               <Input
                 type="text"
                 name="subtitleLangs"
                 value={formData.subtitleLangs}
                 onChange={handleChange}
-                className="font-mono h-11 text-xs bg-secondary/60 border-border"
+                className="font-mono h-11 text-xs bg-secondary/60 border-border/80 rounded-xl"
               />
-              <span className="text-xs text-muted-foreground block">e.g. en.*,ta.* (English & Tamil)</span>
+              <span className="text-xs text-muted-foreground block opacity-80">e.g. en.*,ta.* (English & Tamil)</span>
             </div>
 
-            <div className="flex items-center justify-between p-4 bg-secondary/60 rounded-2xl border border-border">
+            <div className="flex items-center justify-between p-4 bg-secondary/60 rounded-2xl border border-border/80">
               <div>
                 <span className="font-medium text-foreground block">Auto Embed Subtitles</span>
-                <span className="text-xs text-muted-foreground">Download & embed SRT subtitles</span>
+                <span className="text-xs text-muted-foreground opacity-80">Download & embed SRT subtitles</span>
               </div>
               <input
                 type="checkbox"
@@ -198,18 +205,18 @@ export function SettingsTab({ settings, onSettingsSaved }: SettingsTabProps) {
           </div>
         </div>
 
-        {/* Concurrency */}
-        <div className="rounded-3xl border border-border bg-card p-6 sm:p-8 shadow-xs space-y-5">
-          <div className="flex items-center gap-2.5 border-b border-border/70 pb-4">
+        {/* Concurrency Group */}
+        <div className="rounded-3xl border border-border/80 bg-card/80 backdrop-blur-xl p-8 sm:p-10 shadow-sm space-y-6">
+          <div className="flex items-center gap-3 border-b border-border/70 pb-4">
             <Cpu className="h-5 w-5 text-foreground" />
             <h3 className="text-sm sm:text-base font-semibold uppercase tracking-wider text-foreground font-mono">
-              Concurrency & Performance
+              Performance & Parallel Concurrency
             </h3>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-sm">
-            <div className="space-y-1.5">
-              <label className="block font-medium text-foreground">Max Concurrent Jobs</label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
+            <div className="space-y-2">
+              <label className="block font-medium text-foreground text-xs uppercase tracking-wider font-mono">Max Concurrent Jobs</label>
               <Input
                 type="number"
                 name="maxConcurrentJobs"
@@ -217,13 +224,13 @@ export function SettingsTab({ settings, onSettingsSaved }: SettingsTabProps) {
                 onChange={handleChange}
                 min={1}
                 max={20}
-                className="h-11 text-sm bg-secondary/60 border-border"
+                className="h-11 text-sm bg-secondary/60 border-border/80 rounded-xl"
               />
-              <span className="text-xs text-muted-foreground block">Simultaneous channel/video download tasks</span>
+              <span className="text-xs text-muted-foreground block opacity-80">Simultaneous active download worker jobs</span>
             </div>
 
-            <div className="space-y-1.5">
-              <label className="block font-medium text-foreground">Concurrent Fragment Threads</label>
+            <div className="space-y-2">
+              <label className="block font-medium text-foreground text-xs uppercase tracking-wider font-mono">Concurrent Fragment Threads</label>
               <Input
                 type="number"
                 name="concurrentFragments"
@@ -231,22 +238,22 @@ export function SettingsTab({ settings, onSettingsSaved }: SettingsTabProps) {
                 onChange={handleChange}
                 min={1}
                 max={16}
-                className="h-11 text-sm bg-secondary/60 border-border"
+                className="h-11 text-sm bg-secondary/60 border-border/80 rounded-xl"
               />
-              <span className="text-xs text-muted-foreground block">yt-dlp stream fragment download threads</span>
+              <span className="text-xs text-muted-foreground block opacity-80">yt-dlp multi-fragment network stream threads</span>
             </div>
           </div>
         </div>
 
-        {/* Submit */}
+        {/* Submit Action */}
         <div className="flex justify-end pt-2">
           <Button
             type="submit"
             disabled={isSaving}
             size="lg"
-            className="h-12 px-8 text-sm sm:text-base font-semibold rounded-2xl gap-2.5"
+            className="h-12 px-9 text-sm sm:text-base font-semibold rounded-2xl gap-2.5 bg-foreground text-background hover:opacity-90 shadow-md shadow-black/10 transition-transform active:scale-[0.98]"
           >
-            <Save className="h-4 w-4" /> Save Configuration
+            <Save className="h-4 w-4" /> Save Preferences
           </Button>
         </div>
       </form>

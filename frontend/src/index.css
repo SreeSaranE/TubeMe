@@ -2,47 +2,47 @@
 
 @layer base {
   :root {
-    --background: 240 5% 97%; /* #f7f7f8 soft gray page background */
+    --background: 240 6% 97%; /* #f5f5f7 soft studio mist */
     --foreground: 240 10% 8%;
-    --card: 0 0% 100%; /* #ffffff clean white card layer */
+    --card: 0 0% 100%;
     --card-foreground: 240 10% 8%;
     --popover: 0 0% 100%;
     --popover-foreground: 240 10% 8%;
     --primary: 240 10% 8%;
     --primary-foreground: 0 0% 98%;
-    --secondary: 240 5% 92%; /* #eaebee nested box gray */
+    --secondary: 240 5% 92%; /* #eaebee nested box light gray */
     --secondary-foreground: 240 10% 8%;
     --muted: 240 5% 92%;
     --muted-foreground: 240 4% 45%;
-    --accent: 240 5% 90%;
+    --accent: 240 5% 89%;
     --accent-foreground: 240 10% 8%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
     --border: 240 5% 86%; /* #dbdbe0 */
     --input: 240 5% 86%;
     --ring: 240 10% 8%;
-    --radius: 1rem;
+    --radius: 1.25rem;
   }
 
   .dark {
-    --background: 240 10% 3.9%; /* #09090b deep neutral canvas */
+    --background: 240 10% 4.2%; /* #0a0a0d deep designer canvas */
     --foreground: 0 0% 98%;
-    --card: 240 6% 9.5%; /* #18181b clean distinct gray card layer */
+    --card: 240 6% 9.5%; /* #17171d elevated frosted card surface */
     --card-foreground: 0 0% 98%;
     --popover: 240 6% 9%;
     --popover-foreground: 0 0% 98%;
     --primary: 0 0% 98%;
     --primary-foreground: 240 10% 8%;
-    --secondary: 240 5% 15%; /* #242429 nested inner boxes and containers */
+    --secondary: 240 5% 15.5%; /* #24242c nested gray surface */
     --secondary-foreground: 0 0% 98%;
-    --muted: 240 5% 15%;
+    --muted: 240 5% 15.5%;
     --muted-foreground: 240 5% 65%;
     --accent: 240 5% 18%;
     --accent-foreground: 0 0% 98%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
-    --border: 240 5% 18.5%; /* #2e2e34 hairline borders */
-    --input: 240 5% 18.5%;
+    --border: 240 5% 19%; /* #2e2e38 hairline borders */
+    --input: 240 5% 19%;
     --ring: 0 0% 98%;
   }
 
@@ -56,14 +56,22 @@
     min-height: 100vh;
     font-family: 'Poppins', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     font-size: 15px;
-    letter-spacing: -0.012em;
-    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+    letter-spacing: -0.015em;
+    transition: background-color 0.25s ease, color 0.25s ease;
   }
 }
 
 /* Poppins global font rules */
 h1, h2, h3, h4, h5, h6, button, input, select, textarea, span, p {
   font-family: 'Poppins', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+/* Subtle ambient designer glow */
+.bg-ambient-glow {
+  background-image: 
+    radial-gradient(at 10% 0%, hsla(0, 0%, 100%, 0.035) 0px, transparent 50%),
+    radial-gradient(at 90% 0%, hsla(240, 5%, 60%, 0.03) 0px, transparent 50%),
+    radial-gradient(at 50% 100%, hsla(0, 0%, 100%, 0.02) 0px, transparent 60%);
 }
 
 /* Sleek minimal scrollbar */
