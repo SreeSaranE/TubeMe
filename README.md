@@ -1,4 +1,4 @@
-# 🎬 YouTube Downloader Pro
+# 🎬 TubeMe
 
 A clean, modern, self-hosted YouTube archiving & downloading web application built with **ASP.NET Core Web API**, **React (Vite + Tailwind CSS)**, and **yt-dlp**.
 
