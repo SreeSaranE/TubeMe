@@ -110,11 +110,11 @@ export function SearchTab({ onStartDownload, settings }: SearchTabProps) {
         </div>
       </div>
 
-      {/* Results Header & Grid */}
+      {/* Results Header & Grid (Max 4 cards per row) */}
       {results.length > 0 && (
         <div className="space-y-4">
           <div className="flex items-center justify-between px-1">
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider font-mono">
+            <span className="text-xs sm:text-sm font-semibold text-muted-foreground uppercase tracking-wider font-mono">
               Search Results
             </span>
             <Badge variant="secondary" className="font-mono text-xs px-3 py-1">
@@ -122,18 +122,18 @@ export function SearchTab({ onStartDownload, settings }: SearchTabProps) {
             </Badge>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {results.map((item, idx) => (
               <div
                 key={item.id || idx}
-                className="rounded-2xl border border-border bg-card overflow-hidden flex flex-col justify-between group hover:border-foreground/40 transition-all duration-150 shadow-xs"
+                className="rounded-3xl border border-border bg-card overflow-hidden flex flex-col justify-between group hover:border-foreground/40 hover:shadow-md transition-all duration-200 shadow-xs"
               >
                 {/* Full-Color Thumbnail */}
                 <div className="relative aspect-video bg-secondary/70 overflow-hidden">
                   <img
                     src={item.thumbnail}
                     alt={item.title}
-                    className="w-full h-full object-cover group-hover:scale-102 transition duration-200"
+                    className="w-full h-full object-cover group-hover:scale-103 transition duration-300"
                     loading="lazy"
                     onError={(e) => {
                       (e.target as HTMLImageElement).src =
@@ -141,41 +141,41 @@ export function SearchTab({ onStartDownload, settings }: SearchTabProps) {
                     }}
                   />
                   {item.duration && (
-                    <span className="absolute bottom-2.5 right-2.5 px-2 py-0.5 rounded-md bg-black/85 backdrop-blur-xs text-white text-[11px] font-mono font-medium flex items-center gap-1">
-                      <Clock className="h-3 w-3" /> {item.duration}
+                    <span className="absolute bottom-3 right-3 px-2.5 py-1 rounded-lg bg-black/85 backdrop-blur-xs text-white text-xs font-mono font-medium flex items-center gap-1.5 shadow-sm">
+                      <Clock className="h-3.5 w-3.5" /> {item.duration}
                     </span>
                   )}
                   {item.isPlaylist && (
-                    <Badge variant="default" className="absolute top-2.5 left-2.5 text-[10px] font-mono font-bold">
+                    <Badge variant="default" className="absolute top-3 left-3 text-[10px] font-mono font-bold px-2.5 py-0.5">
                       PLAYLIST
                     </Badge>
                   )}
                 </div>
 
                 {/* Info & Action Buttons */}
-                <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
+                <div className="p-6 flex-1 flex flex-col justify-between space-y-4">
                   <div>
-                    <h4 className="font-semibold text-sm sm:text-base text-foreground line-clamp-2 leading-snug" title={item.title}>
+                    <h4 className="font-semibold text-base sm:text-lg text-foreground line-clamp-2 leading-snug" title={item.title}>
                       {item.title}
                     </h4>
-                    <p className="text-xs font-mono text-muted-foreground flex items-center gap-1.5 mt-2">
-                      <User className="h-3.5 w-3.5 opacity-60 shrink-0" />
+                    <p className="text-xs sm:text-sm font-mono text-muted-foreground flex items-center gap-2 mt-2">
+                      <User className="h-4 w-4 opacity-60 shrink-0" />
                       <span className="truncate">{item.channelName || 'Unknown Channel'}</span>
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-2.5 pt-3.5 border-t border-border/70">
+                  <div className="flex items-center gap-2.5 pt-4 border-t border-border/70">
                     <Button
-                      size="sm"
+                      size="default"
                       onClick={() => handleQuickDownload(item)}
-                      className="flex-1 h-10 text-xs sm:text-sm gap-1.5"
+                      className="flex-1 h-11 text-xs sm:text-sm gap-2 rounded-xl"
                     >
                       <Download className="h-4 w-4" /> Quick Download
                     </Button>
                     <Button
                       variant="outline"
                       size="icon"
-                      className="h-10 w-10 shrink-0"
+                      className="h-11 w-11 shrink-0 rounded-xl"
                       onClick={() => setSelectedItem(item)}
                       title="Custom options"
                     >

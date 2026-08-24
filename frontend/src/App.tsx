@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { Navbar } from '@/components/Navbar';
 import { ChannelsTab } from '@/components/ChannelsTab';
@@ -9,12 +10,11 @@ import { SettingsTab } from '@/components/SettingsTab';
 import { api, createSignalRConnection } from '@/services/api';
 import { ChannelModel, DownloadItem, AppSettingsModel, StartDownloadRequest, ChannelSyncRequest } from '@/types';
 
-export function App() {
-  const [activeTab, setActiveTab] = useState('channels');
+function AppContent() {
+  const navigate = useNavigate();
   const [channels, setChannels] = useState<ChannelModel[]>([]);
   const [downloads, setDownloads] = useState<DownloadItem[]>([]);
   const [settings, setSettings] = useState<AppSettingsModel | null>(null);
-  const [isConnected, setIsConnected] = useState(false);
 
   // Load initial data
   const loadData = async () => {
@@ -66,11 +66,7 @@ export function App() {
 
     connection
       .start()
-      .then(() => setIsConnected(true))
       .catch((err) => console.error('SignalR Connection Error:', err));
-
-    connection.onreconnecting(() => setIsConnected(false));
-    connection.onreconnected(() => setIsConnected(true));
 
     return () => {
       connection.stop();
@@ -93,7 +89,7 @@ export function App() {
   const handleSyncChannels = async (req: ChannelSyncRequest) => {
     const queued = await api.syncChannels(req);
     if (queued && queued.length > 0) {
-      setActiveTab('downloads');
+      navigate('/downloads');
     }
   };
 
@@ -105,7 +101,7 @@ export function App() {
   const handleStartDownload = async (req: StartDownloadRequest) => {
     const item = await api.startDownload(req);
     if (item) {
-      setActiveTab('downloads');
+      navigate('/downloads');
     }
   };
 
@@ -123,47 +119,62 @@ export function App() {
   ).length;
 
   return (
+    <div className="min-h-screen bg-background text-foreground flex flex-col font-sans antialiased selection:bg-foreground selection:text-background">
+      {/* Floating Island Navbar */}
+      <Navbar activeDownloadsCount={activeDownloadsCount} />
+
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pb-20 sm:pb-28">
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <ChannelsTab
+                channels={channels}
+                onAddChannel={handleAddChannel}
+                onRemoveChannel={handleRemoveChannel}
+                onSyncChannels={handleSyncChannels}
+                onRefreshMetadata={handleRefreshMetadata}
+                settings={settings}
+              />
+            }
+          />
+          <Route
+            path="/search"
+            element={
+              <SearchTab onStartDownload={handleStartDownload} settings={settings} />
+            }
+          />
+          <Route
+            path="/downloads"
+            element={
+              <DownloadsTab
+                downloads={downloads}
+                onCancelDownload={handleCancelDownload}
+                onClearHistory={handleClearHistory}
+              />
+            }
+          />
+          <Route path="/queue" element={<Navigate to="/downloads" replace />} />
+          <Route path="/library" element={<LibraryTab />} />
+          <Route
+            path="/settings"
+            element={
+              <SettingsTab settings={settings} onSettingsSaved={(s) => setSettings(s)} />
+            }
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </main>
+    </div>
+  );
+}
+
+export function App() {
+  return (
     <ThemeProvider>
-      <div className="min-h-screen bg-background text-foreground flex flex-col font-sans antialiased selection:bg-foreground selection:text-background">
-        {/* Floating Island Navbar */}
-        <Navbar
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          activeDownloadsCount={activeDownloadsCount}
-          isConnected={isConnected}
-        />
-
-        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pb-20 sm:pb-28">
-          {activeTab === 'channels' && (
-            <ChannelsTab
-              channels={channels}
-              onAddChannel={handleAddChannel}
-              onRemoveChannel={handleRemoveChannel}
-              onSyncChannels={handleSyncChannels}
-              onRefreshMetadata={handleRefreshMetadata}
-              settings={settings}
-            />
-          )}
-
-          {activeTab === 'search' && (
-            <SearchTab onStartDownload={handleStartDownload} settings={settings} />
-          )}
-
-          {activeTab === 'downloads' && (
-            <DownloadsTab
-              downloads={downloads}
-              onCancelDownload={handleCancelDownload}
-              onClearHistory={handleClearHistory}
-            />
-          )}
-
-          {activeTab === 'library' && <LibraryTab />}
-
-          {activeTab === 'settings' && (
-            <SettingsTab settings={settings} onSettingsSaved={(s) => setSettings(s)} />
-          )}
-        </main>
-      </div>
+      <BrowserRouter>
+        <AppContent />
+      </BrowserRouter>
     </ThemeProvider>
   );
 }

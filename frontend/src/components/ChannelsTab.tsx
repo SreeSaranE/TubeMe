@@ -176,7 +176,7 @@ export function ChannelsTab({
         </div>
       )}
 
-      {/* Channels Responsive Grid */}
+      {/* Channels Responsive Grid (Max 4 cards per row) */}
       {channels.length === 0 ? (
         <div className="text-center py-28 rounded-3xl border border-dashed border-border bg-card/50">
           <div className="h-16 w-16 rounded-2xl bg-secondary text-foreground flex items-center justify-center mx-auto mb-4 shadow-xs">
@@ -191,34 +191,34 @@ export function ChannelsTab({
           </Button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {filteredChannels.map((ch) => {
             const isSelected = selectedChannels.includes(ch.id);
             return (
               <div
                 key={ch.id}
-                className={`relative group rounded-2xl border bg-card p-5 flex flex-col justify-between transition-all duration-150 select-none shadow-xs ${
+                className={`relative group rounded-3xl border bg-card p-6 sm:p-7 flex flex-col justify-between transition-all duration-200 select-none shadow-xs ${
                   isSelected
                     ? 'border-foreground ring-2 ring-foreground/20 bg-secondary/40'
-                    : 'border-border hover:border-foreground/40'
+                    : 'border-border hover:border-foreground/40 hover:shadow-md'
                 }`}
               >
                 {/* Select Toggle */}
                 <button
                   type="button"
                   onClick={() => toggleSelectChannel(ch.id)}
-                  className="absolute top-4 right-4 text-muted-foreground hover:text-foreground z-10 transition-colors cursor-pointer"
+                  className="absolute top-5 right-5 text-muted-foreground hover:text-foreground z-10 transition-colors cursor-pointer"
                 >
                   {isSelected ? (
-                    <CheckSquare className="h-4 w-4 text-foreground" />
+                    <CheckSquare className="h-5 w-5 text-foreground" />
                   ) : (
-                    <Square className="h-4 w-4 opacity-40 group-hover:opacity-100" />
+                    <Square className="h-5 w-5 opacity-40 group-hover:opacity-100" />
                   )}
                 </button>
 
-                {/* Channel Info with Colored Profile Avatar */}
-                <div className="flex items-start gap-3.5 mb-5 pr-6">
-                  <div className="h-12 w-12 rounded-full overflow-hidden bg-secondary border border-border shrink-0 flex items-center justify-center ring-2 ring-border/60">
+                {/* Channel Info with Bigger Colored Profile Avatar */}
+                <div className="flex items-start gap-4 mb-6 pr-6">
+                  <div className="h-15 w-15 sm:h-16 sm:w-16 rounded-full overflow-hidden bg-secondary border border-border shrink-0 flex items-center justify-center ring-2 ring-border/70 group-hover:ring-foreground/40 transition-all">
                     {ch.avatarUrl ? (
                       <img
                         src={ch.avatarUrl}
@@ -227,56 +227,56 @@ export function ChannelsTab({
                         loading="lazy"
                       />
                     ) : (
-                      <Tv className="h-5 w-5 text-muted-foreground" />
+                      <Tv className="h-7 w-7 text-muted-foreground" />
                     )}
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <h3 className="font-semibold text-sm sm:text-base text-foreground truncate" title={ch.name}>
+                  <div className="min-w-0 flex-1 pt-0.5">
+                    <h3 className="font-semibold text-base sm:text-lg text-foreground truncate leading-snug" title={ch.name}>
                       {ch.name || 'Loading...'}
                     </h3>
                     <a
                       href={ch.url}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-xs font-mono text-muted-foreground hover:text-foreground truncate flex items-center gap-1 mt-1"
+                      className="text-xs sm:text-sm font-mono text-muted-foreground hover:text-foreground truncate flex items-center gap-1.5 mt-1.5"
                     >
                       <span className="truncate">{ch.url.replace('https://www.youtube.com/', '')}</span>
-                      <ExternalLink className="h-3 w-3 shrink-0 opacity-60" />
+                      <ExternalLink className="h-3.5 w-3.5 shrink-0 opacity-60" />
                     </a>
                   </div>
                 </div>
 
                 {/* Footer status & Actions */}
-                <div className="pt-4 border-t border-border/70 flex items-center justify-between text-xs text-muted-foreground">
+                <div className="pt-4 border-t border-border/70 flex items-center justify-between text-xs sm:text-sm text-muted-foreground">
                   <span className="font-mono truncate">
                     {ch.lastSyncedAt ? (
-                      <span className="flex items-center gap-1 text-foreground font-medium">
-                        <Check className="h-3.5 w-3.5" />
+                      <span className="flex items-center gap-1.5 text-foreground font-medium">
+                        <Check className="h-4 w-4" />
                         {new Date(ch.lastSyncedAt).toLocaleDateString()}
                       </span>
                     ) : (
-                      <span className="opacity-50">Never</span>
+                      <span className="opacity-50">Never synced</span>
                     )}
                   </span>
 
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1.5">
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                      className="h-9 w-9 text-muted-foreground hover:text-foreground rounded-xl"
                       onClick={() => handleTriggerSync([ch.id])}
                       title="Sync this channel"
                     >
-                      <Play className="h-3.5 w-3.5 fill-current" />
+                      <Play className="h-4 w-4 fill-current" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8 text-muted-foreground hover:text-foreground opacity-60 hover:opacity-100"
+                      className="h-9 w-9 text-muted-foreground hover:text-foreground opacity-60 hover:opacity-100 rounded-xl"
                       onClick={() => onRemoveChannel(ch.id)}
                       title="Remove channel"
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>

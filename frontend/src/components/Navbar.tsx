@@ -1,20 +1,20 @@
 import React from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { Tv, Search, Download, Folder, Settings } from 'lucide-react';
 
 interface NavbarProps {
-  activeTab: string;
-  setActiveTab: (tab: string) => void;
   activeDownloadsCount: number;
-  isConnected: boolean;
 }
 
-export function Navbar({ activeTab, setActiveTab, activeDownloadsCount }: NavbarProps) {
+export function Navbar({ activeDownloadsCount }: NavbarProps) {
+  const location = useLocation();
+
   const tabs = [
-    { id: 'channels', label: 'Channels', icon: Tv },
-    { id: 'search', label: 'Search', icon: Search },
-    { id: 'downloads', label: 'Queue', icon: Download, badge: activeDownloadsCount },
-    { id: 'library', label: 'Library', icon: Folder },
-    { id: 'settings', label: 'Settings', icon: Settings },
+    { path: '/', label: 'Channels', icon: Tv },
+    { path: '/search', label: 'Search', icon: Search },
+    { path: '/downloads', label: 'Queue', icon: Download, badge: activeDownloadsCount },
+    { path: '/library', label: 'Library', icon: Folder },
+    { path: '/settings', label: 'Settings', icon: Settings },
   ];
 
   return (
@@ -22,10 +22,10 @@ export function Navbar({ activeTab, setActiveTab, activeDownloadsCount }: Navbar
       {/* Floating Island / Pill Navbar */}
       <nav className="pointer-events-auto flex items-center gap-1.5 sm:gap-2 p-2 rounded-full border border-border bg-card/90 backdrop-blur-2xl shadow-xl shadow-black/5 dark:shadow-black/40 transition-all duration-200">
         {/* TubeMe Brand Logo & Name */}
-        <div
-          onClick={() => setActiveTab('channels')}
+        <Link
+          to="/"
           className="flex items-center gap-2.5 pl-3 pr-2.5 py-1 cursor-pointer select-none group"
-          title="TubeMe"
+          title="TubeMe Homepage"
         >
           <div className="h-7 w-7 rounded-xl bg-foreground text-background flex items-center justify-center p-1.5 shadow-xs transition-transform duration-200 group-hover:scale-105">
             <svg
@@ -40,19 +40,23 @@ export function Navbar({ activeTab, setActiveTab, activeDownloadsCount }: Navbar
           <span className="font-bold text-sm sm:text-base tracking-tight text-foreground">
             TubeMe
           </span>
-        </div>
+        </Link>
 
         {/* Hairline Divider */}
         <div className="h-5 w-[1px] bg-border mx-0.5" />
 
-        {/* Tab Buttons */}
+        {/* Tab Links */}
         {tabs.map((tab) => {
           const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
+          const isActive =
+            tab.path === '/'
+              ? location.pathname === '/'
+              : location.pathname.startsWith(tab.path) || (tab.path === '/downloads' && location.pathname.startsWith('/queue'));
+
           return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+            <Link
+              key={tab.path}
+              to={tab.path}
               className={`relative flex items-center gap-2.5 px-3.5 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-medium transition-all duration-200 cursor-pointer select-none ${
                 isActive
                   ? 'bg-foreground text-background font-semibold shadow-sm'
@@ -70,7 +74,7 @@ export function Navbar({ activeTab, setActiveTab, activeDownloadsCount }: Navbar
                   {tab.badge}
                 </span>
               )}
-            </button>
+            </Link>
           );
         })}
       </nav>
