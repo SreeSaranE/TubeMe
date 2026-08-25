@@ -306,13 +306,15 @@ namespace YoutubeDownloader.Services
                 args.Add(settings.ArchiveFile);
             }
 
-            // Channel specific filters
+            // Channel specific filters & Fast Date Range Breaking
             if (item.Type == "ChannelSync")
             {
                 int days = item.DaysLimit ?? settings.DaysLimit;
                 string dateAfter = DateTime.UtcNow.AddDays(-days).ToString("yyyyMMdd");
-                int playlistLimit = days * 2;
+                int playlistLimit = Math.Max(20, days * 3);
 
+                args.Add("--lazy-playlist");
+                args.Add("--break-on-reject");
                 args.Add("--playlist-end"); args.Add(playlistLimit.ToString());
                 args.Add("--dateafter"); args.Add(dateAfter);
                 args.Add("--match-filter"); args.Add("!is_live & !was_live & duration > 60");
@@ -373,7 +375,8 @@ namespace YoutubeDownloader.Services
                 throw;
             }
 
-            if (process.ExitCode != 0 && item.Status != "Cancelled")
+            // Exit code 101 indicates break-on-reject or break-on-existing successfully terminated scanning
+            if (process.ExitCode != 0 && process.ExitCode != 101 && item.Status != "Cancelled")
             {
                 item.Status = "Failed";
                 item.Error = $"yt-dlp exited with code {process.ExitCode}";
