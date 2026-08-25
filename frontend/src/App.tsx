@@ -74,11 +74,18 @@ function AppContent() {
   }, []);
 
   // Handlers
-  const handleAddChannel = async (url: string) => {
-    const newCh = await api.addChannel(url);
+  const handleAddChannel = async (url: string, category: string = 'General') => {
+    const newCh = await api.addChannel(url, category);
     if (newCh) {
       setChannels((prev) => [...prev.filter((c) => c.id !== newCh.id), newCh]);
     }
+  };
+
+  const handleUpdateCategory = async (id: string, category: string) => {
+    await api.updateChannelCategory(id, category);
+    setChannels((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, category } : c))
+    );
   };
 
   const handleRemoveChannel = async (id: string) => {
@@ -131,6 +138,7 @@ function AppContent() {
               <ChannelsTab
                 channels={channels}
                 onAddChannel={handleAddChannel}
+                onUpdateCategory={handleUpdateCategory}
                 onRemoveChannel={handleRemoveChannel}
                 onSyncChannels={handleSyncChannels}
                 onRefreshMetadata={handleRefreshMetadata}

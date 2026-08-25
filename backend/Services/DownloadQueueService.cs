@@ -89,7 +89,9 @@ namespace YoutubeDownloader.Services
             var channels = _channelService.GetChannels();
             var targetChannels = (req.ChannelIds != null && req.ChannelIds.Count > 0)
                 ? channels.Where(c => req.ChannelIds.Contains(c.Id)).ToList()
-                : channels;
+                : (!string.IsNullOrWhiteSpace(req.Category) && !req.Category.Equals("All", StringComparison.OrdinalIgnoreCase)
+                    ? channels.Where(c => c.Category.Equals(req.Category, StringComparison.OrdinalIgnoreCase)).ToList()
+                    : channels);
 
             var queuedItems = new List<DownloadItem>();
             var settings = _settingsService.GetSettings();

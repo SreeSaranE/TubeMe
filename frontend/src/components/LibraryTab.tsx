@@ -4,6 +4,7 @@ import { FileInfoItem } from '@/types';
 import { api } from '@/services/api';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { formatDate } from '@/lib/utils';
 
 export function LibraryTab() {
   const [currentPath, setCurrentPath] = useState('');
@@ -127,7 +128,7 @@ export function LibraryTab() {
 
                 <div className="flex items-center gap-6 text-xs sm:text-sm text-muted-foreground shrink-0 font-mono">
                   {!item.isDirectory && <Badge variant="secondary" className="text-xs px-3 py-1 rounded-full bg-secondary/80">{formatBytes(item.size)}</Badge>}
-                  <span className="hidden sm:inline opacity-80">{new Date(item.lastModified).toLocaleDateString()}</span>
+                  <span className="hidden sm:inline opacity-80">{formatDate(item.lastModified)}</span>
                 </div>
               </div>
             ))}

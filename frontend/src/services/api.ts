@@ -16,12 +16,22 @@ export const api = {
   getChannels: (): Promise<ChannelModel[]> =>
     fetch(`${API_BASE}/channels`).then((res) => res.json()),
 
-  addChannel: (url: string): Promise<ChannelModel> =>
+  getCategories: (): Promise<string[]> =>
+    fetch(`${API_BASE}/channels/categories`).then((res) => res.json()),
+
+  addChannel: (url: string, category: string = 'General'): Promise<ChannelModel> =>
     fetch(`${API_BASE}/channels`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url }),
+      body: JSON.stringify({ url, category }),
     }).then((res) => res.json()),
+
+  updateChannelCategory: (id: string, category: string): Promise<Response> =>
+    fetch(`${API_BASE}/channels/${id}/category`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ category }),
+    }),
 
   removeChannel: (id: string): Promise<Response> =>
     fetch(`${API_BASE}/channels/${id}`, { method: 'DELETE' }),
@@ -49,7 +59,7 @@ export const api = {
     fetch(`${API_BASE}/downloads`).then((res) => res.json()),
 
   startDownload: (req: StartDownloadRequest): Promise<DownloadItem> =>
-    fetch(`${API_BASE}/downloads/start`, {
+    fetch(`${API_BASE}/downloads`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(req),
@@ -59,7 +69,7 @@ export const api = {
     fetch(`${API_BASE}/downloads/${id}/cancel`, { method: 'POST' }),
 
   clearHistory: (): Promise<Response> =>
-    fetch(`${API_BASE}/downloads/clear`, { method: 'DELETE' }),
+    fetch(`${API_BASE}/downloads/clear-history`, { method: 'POST' }),
 
   // Settings
   getSettings: (): Promise<AppSettingsModel> =>
@@ -67,12 +77,12 @@ export const api = {
 
   saveSettings: (settings: AppSettingsModel): Promise<AppSettingsModel> =>
     fetch(`${API_BASE}/settings`, {
-      method: 'PUT',
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(settings),
     }).then((res) => res.json()),
 
-  // Files (only media files or directories)
+  // Files
   getFiles: (subDir = ''): Promise<FileInfoItem[]> =>
     fetch(`${API_BASE}/files?subDir=${encodeURIComponent(subDir)}`).then((res) =>
       res.json()

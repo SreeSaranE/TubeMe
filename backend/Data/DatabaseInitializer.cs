@@ -33,11 +33,20 @@ namespace YoutubeDownloader.Data
                         url TEXT NOT NULL,
                         name TEXT NOT NULL,
                         avatar_url TEXT,
+                        category TEXT NOT NULL DEFAULT 'General',
                         last_synced_at TEXT,
                         created_at TEXT NOT NULL,
                         is_syncing INTEGER NOT NULL DEFAULT 0
                     );";
                 cmd.ExecuteNonQuery();
+
+                // Ensure category column exists if upgrading existing DB
+                try
+                {
+                    cmd.CommandText = "ALTER TABLE channels ADD COLUMN category TEXT NOT NULL DEFAULT 'General';";
+                    cmd.ExecuteNonQuery();
+                }
+                catch { }
 
                 // 2. Settings Table
                 cmd.CommandText = @"

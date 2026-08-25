@@ -23,7 +23,7 @@ namespace YoutubeDownloader.Data.Repositories
                 var list = new List<ChannelModel>();
                 using var conn = _connectionFactory.CreateConnection();
                 using var cmd = conn.CreateCommand();
-                cmd.CommandText = "SELECT id, url, name, avatar_url, last_synced_at, created_at, is_syncing FROM channels ORDER BY created_at DESC;";
+                cmd.CommandText = "SELECT id, url, name, avatar_url, last_synced_at, created_at, is_syncing, category FROM channels ORDER BY category ASC, created_at DESC;";
 
                 using var reader = cmd.ExecuteReader();
                 while (reader.Read())
@@ -36,7 +36,8 @@ namespace YoutubeDownloader.Data.Repositories
                         AvatarUrl = reader.IsDBNull(3) ? string.Empty : reader.GetString(3),
                         LastSyncedAt = reader.IsDBNull(4) ? null : DateTime.Parse(reader.GetString(4)),
                         CreatedAt = DateTime.Parse(reader.GetString(5)),
-                        IsSyncing = reader.GetInt32(6) == 1
+                        IsSyncing = reader.GetInt32(6) == 1,
+                        Category = reader.IsDBNull(7) ? "General" : reader.GetString(7)
                     });
                 }
 
@@ -50,7 +51,7 @@ namespace YoutubeDownloader.Data.Repositories
             {
                 using var conn = _connectionFactory.CreateConnection();
                 using var cmd = conn.CreateCommand();
-                cmd.CommandText = "SELECT id, url, name, avatar_url, last_synced_at, created_at, is_syncing FROM channels WHERE id = @id LIMIT 1;";
+                cmd.CommandText = "SELECT id, url, name, avatar_url, last_synced_at, created_at, is_syncing, category FROM channels WHERE id = @id LIMIT 1;";
                 cmd.Parameters.AddWithValue("@id", id);
 
                 using var reader = cmd.ExecuteReader();
@@ -64,7 +65,8 @@ namespace YoutubeDownloader.Data.Repositories
                         AvatarUrl = reader.IsDBNull(3) ? string.Empty : reader.GetString(3),
                         LastSyncedAt = reader.IsDBNull(4) ? null : DateTime.Parse(reader.GetString(4)),
                         CreatedAt = DateTime.Parse(reader.GetString(5)),
-                        IsSyncing = reader.GetInt32(6) == 1
+                        IsSyncing = reader.GetInt32(6) == 1,
+                        Category = reader.IsDBNull(7) ? "General" : reader.GetString(7)
                     };
                 }
 
@@ -79,12 +81,13 @@ namespace YoutubeDownloader.Data.Repositories
                 using var conn = _connectionFactory.CreateConnection();
                 using var cmd = conn.CreateCommand();
                 cmd.CommandText = @"
-                    INSERT INTO channels (id, url, name, avatar_url, last_synced_at, created_at, is_syncing)
-                    VALUES (@id, @url, @name, @avatarUrl, @lastSyncedAt, @createdAt, @isSyncing)
+                    INSERT INTO channels (id, url, name, avatar_url, category, last_synced_at, created_at, is_syncing)
+                    VALUES (@id, @url, @name, @avatarUrl, @category, @lastSyncedAt, @createdAt, @isSyncing)
                     ON CONFLICT(id) DO UPDATE SET
                         url = excluded.url,
                         name = excluded.name,
                         avatar_url = excluded.avatar_url,
+                        category = excluded.category,
                         last_synced_at = excluded.last_synced_at,
                         is_syncing = excluded.is_syncing;";
 
@@ -92,6 +95,7 @@ namespace YoutubeDownloader.Data.Repositories
                 cmd.Parameters.AddWithValue("@url", channel.Url);
                 cmd.Parameters.AddWithValue("@name", channel.Name);
                 cmd.Parameters.AddWithValue("@avatarUrl", (object?)channel.AvatarUrl ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@category", string.IsNullOrWhiteSpace(channel.Category) ? "General" : channel.Category.Trim());
                 cmd.Parameters.AddWithValue("@lastSyncedAt", channel.LastSyncedAt.HasValue ? (object)channel.LastSyncedAt.Value.ToString("o") : DBNull.Value);
                 cmd.Parameters.AddWithValue("@createdAt", channel.CreatedAt.ToString("o"));
                 cmd.Parameters.AddWithValue("@isSyncing", channel.IsSyncing ? 1 : 0);
@@ -131,6 +135,38 @@ namespace YoutubeDownloader.Data.Repositories
                 cmd.Parameters.AddWithValue("@isSyncing", isSyncing ? 1 : 0);
                 cmd.Parameters.AddWithValue("@id", channelId);
                 cmd.ExecuteNonQuery();
+            }
+        }
+
+        public void UpdateCategory(string channelId, string category)
+        {
+            lock (_lock)
+            {
+                using var conn = _connectionFactory.CreateConnection();
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = "UPDATE channels SET category = @category WHERE id = @id;";
+                cmd.Parameters.AddWithValue("@category", string.IsNullOrWhiteSpace(category) ? "General" : category.Trim());
+                cmd.Parameters.AddWithValue("@id", channelId);
+                cmd.ExecuteNonQuery();
+            }
+        }
+
+        public List<string> GetCategories()
+        {
+            lock (_lock)
+            {
+                var list = new List<string>();
+                using var conn = _connectionFactory.CreateConnection();
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = "SELECT DISTINCT category FROM channels WHERE category IS NOT NULL AND category != '' ORDER BY category ASC;";
+
+                using var reader = cmd.ExecuteReader();
+                while (reader.Read())
+                {
+                    list.Add(reader.GetString(0));
+                }
+
+                return list;
             }
         }
     }

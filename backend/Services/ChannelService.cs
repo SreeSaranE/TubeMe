@@ -36,7 +36,7 @@ namespace YoutubeDownloader.Services
             return _channelRepository.GetAll();
         }
 
-        public async Task<ChannelModel> AddChannelAsync(string url)
+        public async Task<ChannelModel> AddChannelAsync(string url, string category = "General")
         {
             string cleanUrl = url.Trim();
             if (cleanUrl.EndsWith("/videos")) cleanUrl = cleanUrl.Substring(0, cleanUrl.Length - 7);
@@ -45,13 +45,22 @@ namespace YoutubeDownloader.Services
             string id = GetChannelIdFromUrl(cleanUrl);
 
             var existing = _channelRepository.GetById(id);
-            if (existing != null) return existing;
+            if (existing != null)
+            {
+                if (!string.IsNullOrWhiteSpace(category) && existing.Category != category)
+                {
+                    existing.Category = category.Trim();
+                    _channelRepository.Upsert(existing);
+                }
+                return existing;
+            }
 
             var channel = new ChannelModel
             {
                 Id = id,
                 Url = cleanUrl,
                 Name = ExtractHandleFromUrl(cleanUrl),
+                Category = string.IsNullOrWhiteSpace(category) ? "General" : category.Trim(),
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -103,6 +112,16 @@ namespace YoutubeDownloader.Services
         public void SetIsSyncing(string channelId, bool isSyncing)
         {
             _channelRepository.UpdateSyncState(channelId, isSyncing);
+        }
+
+        public void UpdateCategory(string channelId, string category)
+        {
+            _channelRepository.UpdateCategory(channelId, category);
+        }
+
+        public List<string> GetCategories()
+        {
+            return _channelRepository.GetCategories();
         }
 
         private static string GetChannelIdFromUrl(string url)

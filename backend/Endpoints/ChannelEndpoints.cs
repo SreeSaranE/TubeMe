@@ -16,13 +16,18 @@ namespace YoutubeDownloader.Endpoints
                 return Results.Ok(channelService.GetChannels());
             });
 
+            group.MapGet("/categories", (IChannelService channelService) =>
+            {
+                return Results.Ok(channelService.GetCategories());
+            });
+
             group.MapPost("/", async (AddChannelRequest request, IChannelService channelService) =>
             {
                 if (string.IsNullOrWhiteSpace(request.Url))
                 {
                     return Results.BadRequest("URL cannot be empty.");
                 }
-                var channel = await channelService.AddChannelAsync(request.Url);
+                var channel = await channelService.AddChannelAsync(request.Url, request.Category ?? "General");
                 return Results.Ok(channel);
             });
 
@@ -30,6 +35,12 @@ namespace YoutubeDownloader.Endpoints
             {
                 bool removed = channelService.RemoveChannel(id);
                 return removed ? Results.Ok() : Results.NotFound();
+            });
+
+            group.MapPatch("/{id}/category", (string id, UpdateChannelCategoryRequest request, IChannelService channelService) =>
+            {
+                channelService.UpdateCategory(id, request.Category);
+                return Results.Ok();
             });
 
             group.MapPost("/sync", (ChannelSyncRequest request, IDownloadQueueService queueService) =>

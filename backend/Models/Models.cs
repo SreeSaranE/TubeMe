@@ -9,6 +9,7 @@ namespace YoutubeDownloader.Models
         public string Url { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
         public string AvatarUrl { get; set; } = string.Empty;
+        public string Category { get; set; } = "General";
         public DateTime? LastSyncedAt { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public bool IsSyncing { get; set; }
@@ -82,6 +83,7 @@ namespace YoutubeDownloader.Models
     public class ChannelSyncRequest
     {
         public List<string>? ChannelIds { get; set; }
+        public string? Category { get; set; }
         public string? Resolution { get; set; }
         public int? DaysLimit { get; set; }
         public bool? Subtitles { get; set; }
@@ -90,6 +92,12 @@ namespace YoutubeDownloader.Models
     public class AddChannelRequest
     {
         public string Url { get; set; } = string.Empty;
+        public string? Category { get; set; } = "General";
+    }
+
+    public class UpdateChannelCategoryRequest
+    {
+        public string Category { get; set; } = "General";
     }
 
     public class FileInfoItem

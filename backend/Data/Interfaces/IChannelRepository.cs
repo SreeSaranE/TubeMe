@@ -11,5 +11,7 @@ namespace YoutubeDownloader.Data.Interfaces
         void Upsert(ChannelModel channel);
         bool Delete(string id);
         void UpdateSyncState(string channelId, bool isSyncing, DateTime? lastSyncedAt = null);
+        void UpdateCategory(string channelId, string category);
+        List<string> GetCategories();
     }
 }

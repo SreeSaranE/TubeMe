@@ -3,6 +3,7 @@ export interface ChannelModel {
   url: string;
   name: string;
   avatarUrl: string;
+  category?: string;
   lastSyncedAt?: string | null;
   createdAt: string;
   isSyncing: boolean;
@@ -69,9 +70,15 @@ export interface StartDownloadRequest {
 
 export interface ChannelSyncRequest {
   channelIds?: string[] | null;
+  category?: string;
   resolution?: string;
   daysLimit?: number;
   subtitles?: boolean;
+}
+
+export interface AddChannelRequest {
+  url: string;
+  category?: string;
 }
 
 export interface FileInfoItem {
