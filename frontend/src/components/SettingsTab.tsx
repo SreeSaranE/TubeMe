@@ -85,7 +85,7 @@ export function SettingsTab({ settings, onSettingsSaved }: SettingsTabProps) {
 
         {savedSuccess && (
           <span className="text-xs font-mono font-medium text-foreground bg-secondary border border-border/80 px-4 py-2 rounded-full flex items-center gap-2 animate-in fade-in duration-200 shadow-xs">
-            <Check className="h-4 w-4 text-emerald-500" /> Saved
+            <Check className="h-4 w-4 text-success" /> Saved
           </span>
         )}
       </div>
@@ -108,7 +108,7 @@ export function SettingsTab({ settings, onSettingsSaved }: SettingsTabProps) {
                 name="outputDir"
                 value={formData.outputDir}
                 onChange={handleChange}
-                className="font-mono h-11 text-xs bg-secondary/60 border-border/80 rounded-xl"
+                className="font-mono h-11 text-xs bg-secondary/60 border-border/80 rounded-xl text-foreground"
               />
               <span className="text-xs text-muted-foreground block opacity-80">Destination folder for downloaded videos</span>
             </div>
@@ -120,7 +120,7 @@ export function SettingsTab({ settings, onSettingsSaved }: SettingsTabProps) {
                 name="dataDir"
                 value={formData.dataDir}
                 onChange={handleChange}
-                className="font-mono h-11 text-xs bg-secondary/60 border-border/80 rounded-xl"
+                className="font-mono h-11 text-xs bg-secondary/60 border-border/80 rounded-xl text-foreground"
               />
               <span className="text-xs text-muted-foreground block opacity-80">Stores channels, config & cached metadata</span>
             </div>
@@ -132,7 +132,7 @@ export function SettingsTab({ settings, onSettingsSaved }: SettingsTabProps) {
                 name="archiveFile"
                 value={formData.archiveFile}
                 onChange={handleChange}
-                className="font-mono h-11 text-xs bg-secondary/60 border-border/80 rounded-xl"
+                className="font-mono h-11 text-xs bg-secondary/60 border-border/80 rounded-xl text-foreground"
               />
               <span className="text-xs text-muted-foreground block opacity-80">yt-dlp download history archive tracking duplicate prevention</span>
             </div>
@@ -173,7 +173,7 @@ export function SettingsTab({ settings, onSettingsSaved }: SettingsTabProps) {
                 onChange={handleChange}
                 min={1}
                 max={365}
-                className="h-11 text-sm bg-secondary/60 border-border/80 rounded-xl"
+                className="h-11 text-sm bg-secondary/60 border-border/80 rounded-xl text-foreground"
               />
             </div>
 
@@ -184,7 +184,7 @@ export function SettingsTab({ settings, onSettingsSaved }: SettingsTabProps) {
                 name="subtitleLangs"
                 value={formData.subtitleLangs}
                 onChange={handleChange}
-                className="font-mono h-11 text-xs bg-secondary/60 border-border/80 rounded-xl"
+                className="font-mono h-11 text-xs bg-secondary/60 border-border/80 rounded-xl text-foreground"
               />
               <span className="text-xs text-muted-foreground block opacity-80">e.g. en.*,ta.* (English & Tamil)</span>
             </div>
@@ -224,7 +224,7 @@ export function SettingsTab({ settings, onSettingsSaved }: SettingsTabProps) {
                 onChange={handleChange}
                 min={1}
                 max={20}
-                className="h-11 text-sm bg-secondary/60 border-border/80 rounded-xl"
+                className="h-11 text-sm bg-secondary/60 border-border/80 rounded-xl text-foreground"
               />
               <span className="text-xs text-muted-foreground block opacity-80">Simultaneous active download worker jobs</span>
             </div>
@@ -238,7 +238,7 @@ export function SettingsTab({ settings, onSettingsSaved }: SettingsTabProps) {
                 onChange={handleChange}
                 min={1}
                 max={16}
-                className="h-11 text-sm bg-secondary/60 border-border/80 rounded-xl"
+                className="h-11 text-sm bg-secondary/60 border-border/80 rounded-xl text-foreground"
               />
               <span className="text-xs text-muted-foreground block opacity-80">yt-dlp multi-fragment network stream threads</span>
             </div>
@@ -251,7 +251,7 @@ export function SettingsTab({ settings, onSettingsSaved }: SettingsTabProps) {
             type="submit"
             disabled={isSaving}
             size="lg"
-            className="h-12 px-9 text-sm sm:text-base font-semibold rounded-2xl gap-2.5 bg-foreground text-background hover:opacity-90 shadow-md shadow-black/10 transition-transform active:scale-[0.98]"
+            className="h-12 px-9 text-sm sm:text-base font-semibold rounded-2xl gap-2.5 bg-foreground text-background hover:opacity-90 shadow-sm transition-transform active:scale-[0.98]"
           >
             <Save className="h-4 w-4" /> Save Preferences
           </Button>

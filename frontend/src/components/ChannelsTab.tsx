@@ -114,7 +114,7 @@ export function ChannelsTab({
               variant="outline"
               size="default"
               onClick={() => onRefreshMetadata()}
-              className="h-11 px-5 text-sm flex-1 sm:flex-initial rounded-2xl bg-secondary/50 hover:bg-secondary border-border/80"
+              className="h-11 px-5 text-sm flex-1 sm:flex-initial rounded-2xl bg-secondary/50 hover:bg-secondary border-border/80 text-foreground"
               title="Refresh channel avatars and metadata"
             >
               <RefreshCw className="h-4 w-4 mr-2" />
@@ -125,7 +125,7 @@ export function ChannelsTab({
               variant="outline"
               size="default"
               onClick={() => setShowAddModal(true)}
-              className="h-11 px-5 text-sm flex-1 sm:flex-initial rounded-2xl bg-secondary/50 hover:bg-secondary border-border/80"
+              className="h-11 px-5 text-sm flex-1 sm:flex-initial rounded-2xl bg-secondary/50 hover:bg-secondary border-border/80 text-foreground"
             >
               <Plus className="h-4 w-4 mr-2" />
               <span>Add Channel</span>
@@ -134,7 +134,7 @@ export function ChannelsTab({
             <Button
               size="default"
               onClick={() => setShowSyncModal(true)}
-              className="h-11 px-6 text-sm flex-1 sm:flex-initial rounded-2xl bg-foreground text-background hover:opacity-90 shadow-md shadow-black/10 transition-transform active:scale-[0.98]"
+              className="h-11 px-6 text-sm flex-1 sm:flex-initial rounded-2xl bg-foreground text-background hover:opacity-90 shadow-sm transition-transform active:scale-[0.98]"
             >
               <Play className="h-4 w-4 mr-2 fill-current" />
               <span>
@@ -155,7 +155,7 @@ export function ChannelsTab({
               placeholder="Search or filter channels..."
               value={searchFilter}
               onChange={(e) => setSearchFilter(e.target.value)}
-              className="pl-10 h-11 text-sm bg-card/80 border-border/80 rounded-xl focus:ring-1.5 focus:ring-ring"
+              className="pl-10 h-11 text-sm bg-card/80 border-border/80 text-foreground rounded-xl focus:ring-1.5 focus:ring-ring"
             />
           </div>
 
@@ -192,7 +192,7 @@ export function ChannelsTab({
           <p className="text-sm text-muted-foreground max-w-sm mx-auto mt-2 mb-6 leading-relaxed">
             Add YouTube channel URLs (e.g. https://www.youtube.com/@mkbhd) to start building your offline collection.
           </p>
-          <Button onClick={() => setShowAddModal(true)} size="lg" className="h-11 px-7 rounded-2xl">
+          <Button onClick={() => setShowAddModal(true)} size="lg" className="h-11 px-7 rounded-2xl bg-foreground text-background">
             <Plus className="h-4 w-4 mr-2" /> Add First Channel
           </Button>
         </div>
@@ -257,7 +257,7 @@ export function ChannelsTab({
                   <span className="font-mono truncate">
                     {ch.lastSyncedAt ? (
                       <span className="flex items-center gap-1.5 text-foreground font-medium">
-                        <Check className="h-3.5 w-3.5 text-emerald-500" />
+                        <Check className="h-3.5 w-3.5 text-success" />
                         {new Date(ch.lastSyncedAt).toLocaleDateString()}
                       </span>
                     ) : (
@@ -294,7 +294,7 @@ export function ChannelsTab({
 
       {/* Add Channel Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-md flex items-center justify-center p-4">
           <div className="max-w-lg w-full rounded-3xl border border-border/80 bg-card/95 backdrop-blur-2xl p-8 space-y-6 shadow-2xl animate-in fade-in-50 zoom-in-95 duration-200">
             <div className="space-y-1.5">
               <span className="text-[11px] font-mono tracking-widest uppercase text-muted-foreground">New Subscription</span>
@@ -317,7 +317,7 @@ export function ChannelsTab({
                 <Button type="button" variant="outline" size="default" onClick={() => setShowAddModal(false)} className="h-11 px-5 rounded-2xl">
                   Cancel
                 </Button>
-                <Button type="submit" size="default" disabled={isAdding} className="h-11 px-6 rounded-2xl">
+                <Button type="submit" size="default" disabled={isAdding} className="h-11 px-6 rounded-2xl bg-foreground text-background">
                   {isAdding ? 'Adding...' : 'Add Channels'}
                 </Button>
               </div>
@@ -328,7 +328,7 @@ export function ChannelsTab({
 
       {/* Sync Configuration Modal */}
       {showSyncModal && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-md flex items-center justify-center p-4">
           <div className="max-w-md w-full rounded-3xl border border-border/80 bg-card/95 backdrop-blur-2xl p-8 space-y-6 shadow-2xl animate-in fade-in-50 zoom-in-95 duration-200">
             <div className="space-y-1.5">
               <span className="text-[11px] font-mono tracking-widest uppercase text-muted-foreground">Execution Parameters</span>
@@ -364,7 +364,7 @@ export function ChannelsTab({
                   onChange={(e) => setSyncDays(Number(e.target.value))}
                   min={1}
                   max={365}
-                  className="h-11 text-sm bg-secondary/70 border-border/80"
+                  className="h-11 text-sm bg-secondary/70 border-border/80 text-foreground"
                 />
                 <span className="text-xs text-muted-foreground block">
                   Only uploads published in the last {syncDays} days will be synced.
@@ -389,7 +389,7 @@ export function ChannelsTab({
               <Button type="button" variant="outline" size="default" onClick={() => setShowSyncModal(false)} className="h-11 px-5 rounded-2xl">
                 Cancel
               </Button>
-              <Button type="button" size="default" onClick={() => handleTriggerSync()} className="h-11 px-6 rounded-2xl">
+              <Button type="button" size="default" onClick={() => handleTriggerSync()} className="h-11 px-6 rounded-2xl bg-foreground text-background">
                 <Play className="h-4 w-4 mr-2 fill-current" /> Start Sync
               </Button>
             </div>

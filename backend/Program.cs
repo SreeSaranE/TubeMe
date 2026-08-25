@@ -1,17 +1,18 @@
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using YoutubeDownloader.Data;
 using YoutubeDownloader.Data.Interfaces;
 using YoutubeDownloader.Data.Repositories;
+using YoutubeDownloader.Endpoints;
 using YoutubeDownloader.Hubs;
 using YoutubeDownloader.Services;
 using YoutubeDownloader.Services.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add API controllers and SignalR
-builder.Services.AddControllers();
+// Add SignalR
 builder.Services.AddSignalR();
 
 // ==========================================
@@ -65,9 +66,15 @@ app.UseStaticFiles();
 app.UseRouting();
 
 // ==========================================
-// 3. API LAYER ENDPOINTS & HUBS
+// 3. MINIMAL API ENDPOINTS & HUBS
 // ==========================================
-app.MapControllers();
+var apiGroup = app.MapGroup("/api");
+apiGroup.MapGroup("/channels").MapChannelEndpoints();
+apiGroup.MapGroup("/downloads").MapDownloadEndpoints();
+apiGroup.MapGroup("/files").MapFileEndpoints();
+apiGroup.MapGroup("/search").MapSearchEndpoints();
+apiGroup.MapGroup("/settings").MapSettingsEndpoints();
+
 app.MapHub<DownloadHub>("/hubs/downloadHub");
 
 // Single Page Application Fallback for React Router

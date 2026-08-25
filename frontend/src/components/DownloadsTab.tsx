@@ -26,31 +26,31 @@ export function DownloadsTab({ downloads, onCancelDownload, onClearHistory }: Do
     switch (status) {
       case 'Downloading':
         return (
-          <Badge variant="default" className="gap-1.5 font-mono text-xs uppercase animate-pulse px-3.5 py-1 rounded-full">
+          <Badge variant="default" className="gap-1.5 font-mono text-xs uppercase animate-pulse px-3.5 py-1 rounded-full bg-foreground text-background">
             <span className="h-2 w-2 rounded-full bg-background animate-ping" /> Downloading
           </Badge>
         );
       case 'Queued':
         return (
-          <Badge variant="secondary" className="gap-1.5 font-mono text-xs uppercase px-3.5 py-1 rounded-full bg-secondary/80">
+          <Badge variant="secondary" className="gap-1.5 font-mono text-xs uppercase px-3.5 py-1 rounded-full bg-secondary text-secondary-foreground">
             <Clock className="h-3.5 w-3.5" /> Queued
           </Badge>
         );
       case 'Completed':
         return (
-          <Badge variant="outline" className="gap-1.5 font-mono text-xs uppercase border-foreground/40 px-3.5 py-1 rounded-full text-emerald-500 border-emerald-500/30 bg-emerald-500/5">
+          <span className="inline-flex items-center gap-1.5 font-mono text-xs uppercase px-3.5 py-1 rounded-full border border-success/30 bg-success/10 text-success font-medium">
             <Check className="h-3.5 w-3.5" /> Completed
-          </Badge>
+          </span>
         );
       case 'Failed':
         return (
-          <Badge variant="secondary" className="gap-1.5 font-mono text-xs uppercase bg-destructive/10 text-destructive border border-destructive/20 px-3.5 py-1 rounded-full">
+          <span className="inline-flex items-center gap-1.5 font-mono text-xs uppercase px-3.5 py-1 rounded-full border border-destructive/30 bg-destructive/10 text-destructive font-medium">
             <AlertCircle className="h-3.5 w-3.5" /> Failed
-          </Badge>
+          </span>
         );
       case 'Cancelled':
         return (
-          <Badge variant="outline" className="gap-1.5 font-mono text-xs uppercase opacity-60 px-3.5 py-1 rounded-full">
+          <Badge variant="outline" className="gap-1.5 font-mono text-xs uppercase opacity-60 px-3.5 py-1 rounded-full border-border text-muted-foreground">
             <X className="h-3.5 w-3.5" /> Cancelled
           </Badge>
         );
@@ -106,7 +106,7 @@ export function DownloadsTab({ downloads, onCancelDownload, onClearHistory }: Do
             variant="outline"
             size="default"
             onClick={() => onClearHistory()}
-            className="h-11 px-5 text-xs sm:text-sm shrink-0 rounded-2xl bg-secondary/50 hover:bg-secondary border-border/80"
+            className="h-11 px-5 text-xs sm:text-sm shrink-0 rounded-2xl bg-secondary/50 hover:bg-secondary border-border/80 text-foreground"
             title="Clear completed tasks"
           >
             <Trash2 className="h-4 w-4 mr-1.5" />
@@ -136,7 +136,7 @@ export function DownloadsTab({ downloads, onCancelDownload, onClearHistory }: Do
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="min-w-0 flex-1 space-y-1">
                   <div className="flex items-center gap-2.5">
-                    <Badge variant="outline" className="font-mono text-[10px] py-0.5 px-2.5 uppercase tracking-wider rounded-md">
+                    <Badge variant="outline" className="font-mono text-[10px] py-0.5 px-2.5 uppercase tracking-wider rounded-md border-border text-foreground">
                       {item.type}
                     </Badge>
                     <h3 className="font-semibold text-base sm:text-lg text-foreground truncate leading-snug" title={item.title}>
@@ -200,7 +200,7 @@ export function DownloadsTab({ downloads, onCancelDownload, onClearHistory }: Do
 
       {/* Terminal Log Modal */}
       {activeLogItem && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-md flex items-center justify-center p-4">
           <div className="max-w-2xl w-full rounded-3xl border border-border/80 bg-card/95 backdrop-blur-2xl p-7 sm:p-8 space-y-5 flex flex-col max-h-[85vh] shadow-2xl animate-in fade-in-50 zoom-in-95 duration-200">
             <div className="flex items-center justify-between border-b border-border/70 pb-4">
               <div className="min-w-0 flex-1 pr-3">

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Download, Music, Film, Clock, User, SlidersHorizontal, PlayCircle, X, Sparkles } from 'lucide-react';
+import { Search, Download, Music, Film, Clock, User, SlidersHorizontal, PlayCircle, X } from 'lucide-react';
 import { SearchResultItem, StartDownloadRequest, AppSettingsModel } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -86,7 +86,7 @@ export function SearchTab({ onStartDownload, settings }: SearchTabProps) {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search keywords or paste YouTube link (https://www.youtube.com/watch?v=...)"
-                className="pl-11 pr-10 h-12 text-sm sm:text-base rounded-2xl bg-secondary/60 border-border/80 focus:ring-1.5 focus:ring-ring"
+                className="pl-11 pr-10 h-12 text-sm sm:text-base rounded-2xl bg-secondary/60 border-border/80 text-foreground focus:ring-1.5 focus:ring-ring"
               />
               {query && (
                 <button
@@ -102,7 +102,7 @@ export function SearchTab({ onStartDownload, settings }: SearchTabProps) {
               type="submit"
               disabled={isSearching}
               size="lg"
-              className="shrink-0 h-12 px-8 text-sm sm:text-base font-semibold rounded-2xl gap-2 bg-foreground text-background hover:opacity-90 shadow-md shadow-black/10 transition-transform active:scale-[0.98]"
+              className="shrink-0 h-12 px-8 text-sm sm:text-base font-semibold rounded-2xl gap-2 bg-foreground text-background hover:opacity-90 shadow-sm transition-transform active:scale-[0.98]"
             >
               {isSearching ? (
                 <span className="inline-block h-4 w-4 border-2 border-background border-t-transparent rounded-full animate-spin" />
@@ -143,12 +143,12 @@ export function SearchTab({ onStartDownload, settings }: SearchTabProps) {
                     }}
                   />
                   {item.duration && (
-                    <span className="absolute bottom-3 right-3 px-2.5 py-1 rounded-lg bg-black/85 backdrop-blur-xs text-white text-xs font-mono font-medium flex items-center gap-1.5 shadow-sm">
+                    <span className="absolute bottom-3 right-3 px-2.5 py-1 rounded-lg bg-foreground/90 backdrop-blur-xs text-background text-xs font-mono font-medium flex items-center gap-1.5 shadow-sm">
                       <Clock className="h-3.5 w-3.5" /> {item.duration}
                     </span>
                   )}
                   {item.isPlaylist && (
-                    <Badge variant="default" className="absolute top-3 left-3 text-[10px] font-mono font-bold px-2.5 py-0.5">
+                    <Badge variant="default" className="absolute top-3 left-3 text-[10px] font-mono font-bold px-2.5 py-0.5 bg-foreground text-background">
                       PLAYLIST
                     </Badge>
                   )}
@@ -177,7 +177,7 @@ export function SearchTab({ onStartDownload, settings }: SearchTabProps) {
                     <Button
                       variant="outline"
                       size="icon"
-                      className="h-11 w-11 shrink-0 rounded-2xl bg-secondary/50 hover:bg-secondary border-border/80"
+                      className="h-11 w-11 shrink-0 rounded-2xl bg-secondary/50 hover:bg-secondary border-border/80 text-foreground"
                       onClick={() => setSelectedItem(item)}
                       title="Custom download options"
                     >
@@ -206,7 +206,7 @@ export function SearchTab({ onStartDownload, settings }: SearchTabProps) {
 
       {/* Download Options Modal */}
       {selectedItem && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-md flex items-center justify-center p-4">
           <div className="max-w-md w-full rounded-3xl border border-border/80 bg-card/95 backdrop-blur-2xl p-8 space-y-6 shadow-2xl animate-in fade-in-50 zoom-in-95 duration-200">
             <div className="space-y-1.5">
               <span className="text-[11px] font-mono tracking-widest uppercase text-muted-foreground">Download Config</span>
@@ -282,7 +282,7 @@ export function SearchTab({ onStartDownload, settings }: SearchTabProps) {
               <Button type="button" variant="outline" size="default" onClick={() => setSelectedItem(null)} className="h-11 px-5 rounded-2xl">
                 Cancel
               </Button>
-              <Button type="button" size="default" onClick={handleCustomDownloadSubmit} className="h-11 px-6 rounded-2xl">
+              <Button type="button" size="default" onClick={handleCustomDownloadSubmit} className="h-11 px-6 rounded-2xl bg-foreground text-background">
                 <Download className="h-4 w-4 mr-2" /> Start Download
               </Button>
             </div>
