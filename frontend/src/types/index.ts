@@ -96,3 +96,20 @@ export interface CategoryDetailModel {
   channelCount: number;
   createdAt: string;
 }
+
+export interface MediaVideoItem {
+  id: string;
+  title: string;
+  fileName: string;
+  relativePath: string;
+  channelName: string;
+  channelAvatarUrl?: string | null;
+  size: number;
+  lastModified: string;
+  thumbnailUrl: string;
+  streamUrl: string;
+  hasSubtitles: boolean;
+  subtitleUrl?: string | null;
+  format: string;
+}
+

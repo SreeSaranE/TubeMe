@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import { ThemeProvider } from '@/context/ThemeContext';
-import { SidebarProvider } from '@/components/ui/sidebar';
-import { Navbar } from '@/components/Navbar';
+import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
 import { ChannelsTab } from '@/components/ChannelsTab';
 import { SearchTab } from '@/components/SearchTab';
 import { DownloadsTab } from '@/components/DownloadsTab';
-import { LibraryTab } from '@/components/LibraryTab';
+import { HomeTab } from '@/components/HomeTab';
+import { VideoPlayerTab } from '@/components/VideoPlayerTab';
 import { SettingsTab } from '@/components/SettingsTab';
 import { api, createSignalRConnection } from '@/services/api';
 import {
@@ -134,21 +134,26 @@ function AppContent() {
   ).length;
 
   return (
-    <div className="min-h-screen bg-[var(--bg-app)] text-[var(--text-primary)] flex flex-col font-sans antialiased">
-      {/* 1. Top Simple Navbar */}
-      <Navbar activeDownloadsCount={activeDownloadsCount} />
+    <div className="min-h-screen bg-[var(--bg-app)] text-[var(--text-primary)] flex w-full font-sans antialiased">
+      <AppSidebar
+        channelsCount={channels.length}
+        activeDownloadsCount={activeDownloadsCount}
+      />
 
-      {/* 2. Body: shadcn Sidebar + Main Viewport */}
-      <div className="flex-1 flex w-full">
-        <AppSidebar
-          channelsCount={channels.length}
-          activeDownloadsCount={activeDownloadsCount}
-        />
+      <main className="flex-1 min-w-0 px-4 sm:px-8 lg:px-12 py-6 sm:py-10 max-w-7xl mx-auto w-full">
+        <div className="md:hidden mb-4">
+          <SidebarTrigger />
+        </div>
+        <Routes>
+            {/* 1. Home Feed (YouTube-style video library grid) */}
+            <Route path="/" element={<HomeTab />} />
 
-        <main className="flex-1 min-w-0 px-6 sm:px-10 lg:px-12 py-8 sm:py-10 max-w-7xl mx-auto w-full">
-          <Routes>
+            {/* 2. YouTube-style Video Player Page */}
+            <Route path="/watch" element={<VideoPlayerTab />} />
+
+            {/* 3. Channels Management */}
             <Route
-              path="/"
+              path="/channels"
               element={
                 <ChannelsTab
                   channels={channels}
@@ -162,12 +167,16 @@ function AppContent() {
                 />
               }
             />
+
+            {/* 4. Search & Direct Downloader */}
             <Route
               path="/search"
               element={
                 <SearchTab onStartDownload={handleStartDownload} settings={settings} />
               }
             />
+
+            {/* 5. Downloads Queue */}
             <Route
               path="/downloads"
               element={
@@ -179,7 +188,9 @@ function AppContent() {
               }
             />
             <Route path="/queue" element={<Navigate to="/downloads" replace />} />
-            <Route path="/library" element={<LibraryTab />} />
+            <Route path="/library" element={<Navigate to="/" replace />} />
+
+            {/* 6. Settings */}
             <Route
               path="/settings"
               element={
@@ -189,7 +200,6 @@ function AppContent() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>
-      </div>
     </div>
   );
 }

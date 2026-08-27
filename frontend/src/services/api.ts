@@ -7,6 +7,7 @@ import {
   StartDownloadRequest,
   ChannelSyncRequest,
   FileInfoItem,
+  MediaVideoItem,
 } from '@/types';
 
 const API_BASE = '/api';
@@ -102,11 +103,19 @@ export const api = {
       body: JSON.stringify(settings),
     }).then((res) => res.json()),
 
-  // Files
+  // Files & Media
   getFiles: (subDir = ''): Promise<FileInfoItem[]> =>
     fetch(`${API_BASE}/files?subDir=${encodeURIComponent(subDir)}`).then((res) =>
       res.json()
     ),
+
+  getVideos: (): Promise<MediaVideoItem[]> =>
+    fetch(`${API_BASE}/media/videos`).then((res) => res.json()),
+
+  deleteMediaVideo: (relativePath: string): Promise<Response> =>
+    fetch(`${API_BASE}/media/file?path=${encodeURIComponent(relativePath)}`, {
+      method: 'DELETE',
+    }),
 };
 
 export const createSignalRConnection = (): signalR.HubConnection => {

@@ -183,35 +183,62 @@ export function ChannelsTab({
 
   return (
     <div className="space-y-8">
-      {/* 1. Clean, Spacious Action Header (Unwanted clutter removed) */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5 border-b border-[var(--border)] pb-6">
-        <div className="flex items-center gap-3.5">
-          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-[var(--text-primary)]">
-            Channels
-          </h1>
-          <span className="counter-badge text-xs px-2.5 py-0.5">
-            {channels.length}
-          </span>
+      {/* 1. Fully Responsive Header & Rock-Solid Stable Sync Button */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[var(--border)] pb-6">
+        {/* Left: Title + Counter Badge */}
+        <div className="flex items-center justify-between sm:justify-start gap-3.5">
+          <div className="flex items-center gap-3.5">
+            <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-[var(--text-primary)]">
+              Channels
+            </h1>
+            <span className="counter-badge text-xs px-2.5 py-0.5 font-medium">
+              {channels.length}
+            </span>
+          </div>
+
+          {/* Quick buttons on mobile top row */}
+          <div className="flex items-center gap-2 sm:hidden">
+            <button
+              type="button"
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className="btn btn-secondary h-10 w-10 p-0 flex items-center justify-center rounded-[var(--radius-sm)]"
+              title="Refresh channel metadata"
+            >
+              <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowAddModal(true)}
+              className="btn btn-secondary h-10 px-3 text-xs font-medium flex items-center gap-1.5 rounded-[var(--radius-sm)]"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Add</span>
+            </button>
+          </div>
         </div>
 
-        <div className="flex items-center flex-wrap gap-3">
+        {/* Right: Actions on Tablet/Desktop, Full-Width on Mobile */}
+        <div className="w-full sm:w-auto flex items-center justify-end gap-3 sm:ml-auto">
+          {/* Desktop/Tablet Refresh & Add buttons */}
           <button
             type="button"
             onClick={handleRefresh}
             disabled={isRefreshing}
-            className="btn btn-secondary h-11 px-4 text-sm font-semibold"
+            className="hidden sm:inline-flex btn btn-secondary h-10 px-4 text-sm font-medium whitespace-nowrap shrink-0"
             title="Refresh channel metadata"
           >
-            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 mr-1.5 ${isRefreshing ? 'animate-spin' : ''}`} />
             <span>Refresh</span>
           </button>
 
           <button
             type="button"
             onClick={() => setShowAddModal(true)}
-            className="btn btn-secondary h-11 px-4 text-sm font-semibold"
+            className="hidden sm:inline-flex btn btn-secondary h-10 px-4 text-sm font-medium whitespace-nowrap shrink-0"
           >
-            <Plus className="h-4 w-4" />
+            <Plus className="h-4 w-4 mr-1" />
             <span>Add Channel</span>
           </button>
 
@@ -225,10 +252,10 @@ export function ChannelsTab({
                   handleTriggerSync(null, selectedCategoryTab !== 'All' ? selectedCategoryTab : null);
                 }
               }}
-              className="btn btn-primary h-11 px-6 text-sm font-bold shadow-sm"
+              className="w-full sm:w-auto sm:min-w-[190px] btn btn-primary h-10 px-5 text-sm font-medium shadow-sm whitespace-nowrap shrink-0 flex items-center justify-center transition-all duration-150"
             >
-              <Play className="h-4 w-4 fill-current mr-2" />
-              <span>
+              <Play className="h-4 w-4 fill-current mr-2 shrink-0" />
+              <span className="truncate">
                 {selectedChannels.length > 0
                   ? `Sync Selected (${selectedChannels.length})`
                   : selectedCategoryTab !== 'All'
@@ -244,7 +271,7 @@ export function ChannelsTab({
       {channels.length > 0 && (
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-2.5 overflow-x-auto pb-1 scrollbar-none flex-1">
+            <div className="flex items-center gap-2.5 overflow-x-auto pb-1 scrollbar-none flex-1 min-w-0">
               <button
                 type="button"
                 onClick={() => setSelectedCategoryTab('All')}
@@ -259,7 +286,7 @@ export function ChannelsTab({
                 <span
                   className={`text-xs font-mono px-2 py-0.5 rounded-[var(--radius-full)] font-bold ${
                     selectedCategoryTab === 'All'
-                      ? 'bg-white/20 text-white'
+                      ? 'bg-[var(--primary-foreground)]/15 text-[var(--primary-foreground)]'
                       : 'bg-[var(--bg-subtle)] text-[var(--text-muted)]'
                   }`}
                 >
@@ -291,7 +318,7 @@ export function ChannelsTab({
                     <span
                       className={`text-xs font-mono px-2 py-0.5 rounded-[var(--radius-full)] font-bold ${
                         isActive
-                          ? 'bg-white/20 text-white'
+                          ? 'bg-[var(--primary-foreground)]/15 text-[var(--primary-foreground)]'
                           : 'bg-[var(--bg-subtle)] text-[var(--text-muted)]'
                       }`}
                     >
@@ -306,9 +333,9 @@ export function ChannelsTab({
             <button
               type="button"
               onClick={() => setShowManageCategoriesModal(true)}
-              className="btn btn-secondary text-sm h-10 px-4 rounded-[var(--radius-full)] shrink-0 self-start sm:self-auto font-semibold"
+              className="btn btn-secondary text-xs sm:text-sm h-10 px-4 rounded-[var(--radius-full)] shrink-0 w-full sm:w-auto justify-center font-semibold"
             >
-              <FolderKanban className="h-4 w-4 text-[var(--text-primary)]" />
+              <FolderKanban className="h-4 w-4 text-[var(--text-primary)] mr-1" />
               <span>Manage Categories</span>
             </button>
           </div>
@@ -430,7 +457,7 @@ export function ChannelsTab({
                     <div className="min-w-0 flex-1 space-y-1.5">
                       <div className="flex items-center gap-1.5">
                         <h3
-                          className="font-extrabold text-lg sm:text-xl text-[var(--text-primary)] truncate leading-snug tracking-tight"
+                          className="font-semibold text-base sm:text-lg text-[var(--text-primary)] truncate leading-snug tracking-tight"
                           title={ch.name}
                         >
                           {ch.name}
@@ -565,9 +592,9 @@ export function ChannelsTab({
                         setAddChannelCategory(cat);
                         setCustomAddCategory('');
                       }}
-                      className={`px-3.5 py-1.5 rounded-[var(--radius-sm)] text-xs font-bold border cursor-pointer ${
+                      className={`px-3.5 py-1.5 rounded-[var(--radius-sm)] text-xs font-bold border cursor-pointer transition-colors ${
                         addChannelCategory === cat && !customAddCategory
-                          ? 'bg-[var(--primary)] text-white border-[var(--primary)]'
+                          ? 'bg-[var(--primary)] text-[var(--primary-foreground)] border-[var(--primary)]'
                           : 'bg-[var(--bg-subtle)] text-[var(--text-secondary)] border-[var(--border)] hover:text-[var(--text-primary)]'
                       }`}
                     >
@@ -577,9 +604,9 @@ export function ChannelsTab({
                   <button
                     type="button"
                     onClick={() => setAddChannelCategory('__custom__')}
-                    className={`px-3.5 py-1.5 rounded-[var(--radius-sm)] text-xs font-bold border cursor-pointer ${
+                    className={`px-3.5 py-1.5 rounded-[var(--radius-sm)] text-xs font-bold border cursor-pointer transition-colors ${
                       addChannelCategory === '__custom__'
-                        ? 'bg-[var(--primary)] text-white border-[var(--primary)]'
+                        ? 'bg-[var(--primary)] text-[var(--primary-foreground)] border-[var(--primary)]'
                         : 'bg-[var(--bg-subtle)] text-[var(--text-secondary)] border-[var(--border)]'
                     }`}
                   >
@@ -651,10 +678,10 @@ export function ChannelsTab({
                       key={cat}
                       type="button"
                       onClick={() => setNewCategoryName(cat)}
-                      className={`px-3 py-1.5 rounded-[var(--radius-sm)] text-xs font-bold border cursor-pointer ${
+                      className={`px-3 py-1.5 rounded-[var(--radius-sm)] text-xs font-bold border cursor-pointer transition-colors ${
                         newCategoryName === cat
-                          ? 'bg-[var(--primary)] text-white border-[var(--primary)]'
-                          : 'bg-[var(--bg-subtle)] text-[var(--text-secondary)] border-[var(--border)]'
+                          ? 'bg-[var(--primary)] text-[var(--primary-foreground)] border-[var(--primary)]'
+                          : 'bg-[var(--bg-subtle)] text-[var(--text-secondary)] border-[var(--border)] hover:text-[var(--text-primary)]'
                       }`}
                     >
                       {cat}

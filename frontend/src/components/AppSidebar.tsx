@@ -1,10 +1,10 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
+  Home,
   Tv,
   Search,
   Download,
-  Folder,
   Settings,
 } from 'lucide-react';
 import {
@@ -31,7 +31,7 @@ export function AppSidebar({ channelsCount, activeDownloadsCount }: AppSidebarPr
   const isCompact = !open && !isMobile;
 
   const isLinkActive = (path: string) => {
-    if (path === '/') return location.pathname === '/';
+    if (path === '/') return location.pathname === '/' || location.pathname === '/watch';
     if (path === '/downloads') {
       return location.pathname === '/downloads' || location.pathname === '/queue';
     }
@@ -47,13 +47,18 @@ export function AppSidebar({ channelsCount, activeDownloadsCount }: AppSidebarPr
   const navItems = [
     {
       path: '/',
+      label: 'Home',
+      icon: Home,
+    },
+    {
+      path: '/channels',
       label: 'Channels',
       icon: Tv,
       badge: channelsCount > 0 ? channelsCount : undefined,
     },
     {
       path: '/search',
-      label: 'Search & Download',
+      label: 'Search',
       icon: Search,
     },
     {
@@ -61,11 +66,6 @@ export function AppSidebar({ channelsCount, activeDownloadsCount }: AppSidebarPr
       label: 'Queue',
       icon: Download,
       badge: activeDownloadsCount > 0 ? activeDownloadsCount : undefined,
-    },
-    {
-      path: '/library',
-      label: 'Library',
-      icon: Folder,
     },
     {
       path: '/settings',
@@ -103,18 +103,9 @@ export function AppSidebar({ channelsCount, activeDownloadsCount }: AppSidebarPr
       </SidebarContent>
 
       <SidebarFooter>
-        <div className="flex items-center gap-2.5">
-          <div className="h-2.5 w-2.5 rounded-full bg-[var(--success)] shrink-0" />
-          {!isCompact && (
-            <div className="flex flex-col min-w-0">
-              <span className="text-xs font-bold text-[var(--text-primary)] truncate">
-                Engine v2.4
-              </span>
-              <span className="text-[11px] text-[var(--text-muted)] font-mono truncate">
-                Port 5000 • Online
-              </span>
-            </div>
-          )}
+        <div className="status-chip connected text-xs px-2.5 py-1 w-fit">
+          <span className="status-dot"></span>
+          {!isCompact ? <span>Engine Ready</span> : null}
         </div>
       </SidebarFooter>
     </Sidebar>

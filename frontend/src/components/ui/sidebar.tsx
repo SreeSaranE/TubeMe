@@ -149,7 +149,7 @@ export function SidebarGroupLabel({ children }: { children: React.ReactNode }) {
   const { open, isMobile } = useSidebar();
   if (!open && !isMobile) return null;
   return (
-    <div className="px-3 py-1 text-xs font-mono font-bold uppercase tracking-wider text-[var(--text-muted)]">
+    <div className="px-3 py-1 text-xs font-mono font-medium uppercase tracking-wider text-[var(--text-muted)]">
       {children}
     </div>
   );
@@ -181,7 +181,7 @@ export function SidebarMenuButton({
     <button
       type="button"
       onClick={onClick}
-      className={`w-full flex items-center gap-3.5 px-3.5 py-3 rounded-[var(--radius-md)] text-sm font-bold transition-all duration-150 cursor-pointer ${
+      className={`w-full flex items-center gap-3.5 px-3.5 py-3 rounded-[var(--radius-md)] text-sm font-medium transition-all duration-150 cursor-pointer ${
         isCompact ? 'justify-center px-0 py-3.5' : ''
       } ${
         isActive
@@ -198,7 +198,7 @@ export function SidebarMenuBadge({ children }: { children: React.ReactNode }) {
   const { open, isMobile } = useSidebar();
   if (!open && !isMobile) return null;
   return (
-    <span className="ml-auto font-mono text-xs font-bold px-2 py-0.5 rounded-[var(--radius-full)] bg-[var(--bg-subtle)] text-[var(--text-primary)] border border-[var(--border)]">
+    <span className="ml-auto font-mono text-xs font-medium px-2 py-0.5 rounded-[var(--radius-full)] bg-[var(--bg-subtle)] text-[var(--text-primary)] border border-[var(--border)]">
       {children}
     </span>
   );

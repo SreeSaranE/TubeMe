@@ -92,10 +92,10 @@ export function SearchTab({ onStartDownload, settings }: SearchTabProps) {
 
   return (
     <div className="space-y-8">
-      {/* 1. Clean Title (Unwanted promotional/technical clutter removed) */}
+      {/* 1. Clean Title */}
       <div className="border-b border-[var(--border)] pb-6">
-        <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-[var(--text-primary)]">
-          Search & Download
+        <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-[var(--text-primary)]">
+          Search
         </h1>
       </div>
 
@@ -127,7 +127,7 @@ export function SearchTab({ onStartDownload, settings }: SearchTabProps) {
           <button
             type="submit"
             disabled={!query.trim() || isSearching}
-            className="btn btn-primary h-14 sm:h-16 px-8 text-base font-bold shrink-0 shadow-sm"
+            className="btn btn-primary h-14 sm:h-16 px-8 text-base font-medium shrink-0 shadow-sm"
           >
             {isSearching ? (
               <span>Searching...</span>

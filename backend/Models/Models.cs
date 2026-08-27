@@ -131,4 +131,21 @@ namespace YoutubeDownloader.Models
     {
         public string NewName { get; set; } = string.Empty;
     }
+
+    public class MediaVideoItem
+    {
+        public string Id { get; set; } = string.Empty;
+        public string Title { get; set; } = string.Empty;
+        public string FileName { get; set; } = string.Empty;
+        public string RelativePath { get; set; } = string.Empty;
+        public string ChannelName { get; set; } = string.Empty;
+        public string? ChannelAvatarUrl { get; set; }
+        public long Size { get; set; }
+        public DateTime LastModified { get; set; }
+        public string ThumbnailUrl { get; set; } = string.Empty;
+        public string StreamUrl { get; set; } = string.Empty;
+        public bool HasSubtitles { get; set; }
+        public string? SubtitleUrl { get; set; }
+        public string Format { get; set; } = string.Empty;
+    }
 }

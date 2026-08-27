@@ -1,18 +1,16 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
-export type ThemeMode = 'light' | 'dark';
+export type ThemeMode = 'light' | 'dark' | 'system';
 
 interface ThemeContextType {
   theme: ThemeMode;
   isDark: boolean;
-  toggleTheme: () => void;
   setTheme: (theme: ThemeMode) => void;
 }
 
 const ThemeContext = createContext<ThemeContextType>({
-  theme: 'light',
+  theme: 'system',
   isDark: false,
-  toggleTheme: () => {},
   setTheme: () => {},
 });
 
@@ -20,17 +18,34 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<ThemeMode>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('tubeme-theme') as ThemeMode;
-      if (saved === 'dark' || saved === 'light') return saved;
-      return 'light'; // Default to Modern Light Dashboard
+      if (saved === 'dark' || saved === 'light' || saved === 'system') return saved;
+      return 'system';
     }
-    return 'light';
+    return 'system';
   });
 
-  const isDark = theme === 'dark';
+  const [systemIsDark, setSystemIsDark] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handler = (e: MediaQueryListEvent) => {
+      setSystemIsDark(e.matches);
+    };
+    mediaQuery.addEventListener('change', handler);
+    return () => mediaQuery.removeEventListener('change', handler);
+  }, []);
+
+  const isDark = theme === 'system' ? systemIsDark : theme === 'dark';
 
   useEffect(() => {
     const root = document.documentElement;
-    if (theme === 'dark') {
+    if (isDark) {
       root.classList.add('dark');
       root.classList.remove('light');
     } else {
@@ -38,18 +53,14 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       root.classList.add('light');
     }
     localStorage.setItem('tubeme-theme', theme);
-  }, [theme]);
-
-  const toggleTheme = () => {
-    setThemeState((prev) => (prev === 'light' ? 'dark' : 'light'));
-  };
+  }, [isDark, theme]);
 
   const setTheme = (newTheme: ThemeMode) => {
     setThemeState(newTheme);
   };
 
   return (
-    <ThemeContext.Provider value={{ theme, isDark, toggleTheme, setTheme }}>
+    <ThemeContext.Provider value={{ theme, isDark, setTheme }}>
       {children}
     </ThemeContext.Provider>
   );

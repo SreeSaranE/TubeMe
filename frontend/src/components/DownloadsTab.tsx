@@ -30,6 +30,23 @@ export function DownloadsTab({ downloads, onCancelDownload, onClearHistory }: Do
     return true;
   });
 
+  const statusPriority: Record<string, number> = {
+    Downloading: 0,
+    Queued: 1,
+    Failed: 2,
+    Cancelled: 3,
+    Completed: 4,
+  };
+
+  const sortedDownloads = [...filteredDownloads].sort((a, b) => {
+    const pA = statusPriority[a.status] ?? 99;
+    const pB = statusPriority[b.status] ?? 99;
+    if (pA !== pB) return pA - pB;
+    const timeA = new Date(a.createdAt || 0).getTime();
+    const timeB = new Date(b.createdAt || 0).getTime();
+    return timeB - timeA;
+  });
+
   const activeCount = downloads.filter((d) => d.status === 'Downloading' || d.status === 'Queued').length;
   const completedCount = downloads.filter((d) => d.status === 'Completed').length;
   const failedCount = downloads.filter((d) => d.status === 'Failed' || d.status === 'Cancelled').length;
@@ -81,11 +98,11 @@ export function DownloadsTab({ downloads, onCancelDownload, onClearHistory }: Do
       {/* 1. Clean, Spacious Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5 border-b border-[var(--border)] pb-6">
         <div className="flex items-center gap-3.5">
-          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-[var(--text-primary)]">
+          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-[var(--text-primary)]">
             Queue
           </h1>
           {activeCount > 0 && (
-            <span className="counter-badge text-xs px-2.5 py-0.5 animate-pulse">
+            <span className="counter-badge text-xs px-2.5 py-0.5 animate-pulse font-medium">
               {activeCount} active
             </span>
           )}
@@ -96,7 +113,7 @@ export function DownloadsTab({ downloads, onCancelDownload, onClearHistory }: Do
             <button
               type="button"
               onClick={onClearHistory}
-              className="btn btn-secondary text-sm h-11 px-4 font-semibold"
+              className="btn btn-secondary text-xs sm:text-sm h-9 px-3.5 font-medium flex items-center gap-2"
               title="Clear completed and failed tasks"
             >
               <Trash2 className="h-4 w-4" />
@@ -191,7 +208,7 @@ export function DownloadsTab({ downloads, onCancelDownload, onClearHistory }: Do
         </div>
       ) : (
         <div className="space-y-4">
-          {filteredDownloads.map((item) => {
+          {sortedDownloads.map((item) => {
             const isRunning = item.status === 'Downloading';
             const isQueued = item.status === 'Queued';
 

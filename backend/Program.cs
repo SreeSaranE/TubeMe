@@ -33,6 +33,7 @@ builder.Services.AddSingleton<IYtDlpService, YtDlpService>();
 builder.Services.AddSingleton<IChannelService, ChannelService>();
 builder.Services.AddSingleton<ICategoryService, CategoryService>();
 builder.Services.AddSingleton<IMediaFileService, MediaFileService>();
+builder.Services.AddSingleton<IMediaService, MediaService>();
 
 // Register DownloadQueueService as Singleton, Interface implementation, and Background HostedService
 builder.Services.AddSingleton<DownloadQueueService>();
@@ -75,6 +76,7 @@ apiGroup.MapGroup("/channels").MapChannelEndpoints();
 apiGroup.MapGroup("/categories").MapCategoryEndpoints();
 apiGroup.MapGroup("/downloads").MapDownloadEndpoints();
 apiGroup.MapGroup("/files").MapFileEndpoints();
+apiGroup.MapGroup("/media").MapMediaEndpoints();
 apiGroup.MapGroup("/search").MapSearchEndpoints();
 apiGroup.MapGroup("/settings").MapSettingsEndpoints();
 
