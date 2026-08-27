@@ -114,4 +114,21 @@ namespace YoutubeDownloader.Models
         public string Name { get; set; } = string.Empty;
         public string AvatarUrl { get; set; } = string.Empty;
     }
+
+    public class CategoryDetailModel
+    {
+        public string Name { get; set; } = string.Empty;
+        public int ChannelCount { get; set; }
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    }
+
+    public class CreateCategoryRequest
+    {
+        public string Name { get; set; } = string.Empty;
+    }
+
+    public class UpdateCategoryRequest
+    {
+        public string NewName { get; set; } = string.Empty;
+    }
 }

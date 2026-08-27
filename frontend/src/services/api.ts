@@ -16,8 +16,28 @@ export const api = {
   getChannels: (): Promise<ChannelModel[]> =>
     fetch(`${API_BASE}/channels`).then((res) => res.json()),
 
-  getCategories: (): Promise<string[]> =>
-    fetch(`${API_BASE}/channels/categories`).then((res) => res.json()),
+  // Categories Management
+  getCategoriesDetails: (): Promise<import('@/types').CategoryDetailModel[]> =>
+    fetch(`${API_BASE}/categories`).then((res) => res.json()),
+
+  addCategory: (name: string): Promise<Response> =>
+    fetch(`${API_BASE}/categories`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    }),
+
+  renameCategory: (oldName: string, newName: string): Promise<Response> =>
+    fetch(`${API_BASE}/categories/${encodeURIComponent(oldName)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ newName }),
+    }),
+
+  deleteCategory: (name: string): Promise<Response> =>
+    fetch(`${API_BASE}/categories/${encodeURIComponent(name)}`, {
+      method: 'DELETE',
+    }),
 
   addChannel: (url: string, category: string = 'General'): Promise<ChannelModel> =>
     fetch(`${API_BASE}/channels`, {

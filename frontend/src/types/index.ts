@@ -90,3 +90,9 @@ export interface FileInfoItem {
 }
 
 export type Theme = 'dark' | 'light' | 'system';
+
+export interface CategoryDetailModel {
+  name: string;
+  channelCount: number;
+  createdAt: string;
+}

@@ -1,26 +1,25 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Plus,
   RefreshCw,
   Play,
   Trash2,
-  Check,
   Tv,
   ExternalLink,
-  SlidersHorizontal,
   CheckSquare,
   Square,
   Search,
   Tag,
-  FolderPlus,
   Layers,
-  Edit3,
+  FolderKanban,
+  Edit2,
+  Check,
+  X,
 } from 'lucide-react';
-import { ChannelModel, ChannelSyncRequest, AppSettingsModel } from '@/types';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
+import { ChannelModel, ChannelSyncRequest, AppSettingsModel, CategoryDetailModel } from '@/types';
 import { formatDate } from '@/lib/utils';
+import { api } from '@/services/api';
+import { ManageCategoriesModal } from '@/components/ManageCategoriesModal';
 
 interface ChannelsTabProps {
   channels: ChannelModel[];
@@ -29,6 +28,7 @@ interface ChannelsTabProps {
   onRemoveChannel: (id: string) => Promise<void>;
   onSyncChannels: (req: ChannelSyncRequest) => Promise<void>;
   onRefreshMetadata: () => Promise<void>;
+  onReloadChannels?: () => Promise<void>;
   settings: AppSettingsModel | null;
 }
 
@@ -39,16 +39,20 @@ export function ChannelsTab({
   onRemoveChannel,
   onSyncChannels,
   onRefreshMetadata,
+  onReloadChannels,
   settings,
 }: ChannelsTabProps) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showSyncModal, setShowSyncModal] = useState(false);
+  const [showManageCategoriesModal, setShowManageCategoriesModal] = useState(false);
+  const [categoriesList, setCategoriesList] = useState<CategoryDetailModel[]>([]);
   const [editingCategoryChannel, setEditingCategoryChannel] = useState<ChannelModel | null>(null);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [addChannelCategory, setAddChannelCategory] = useState('Tech');
   const [customAddCategory, setCustomAddCategory] = useState('');
   const [newChannelInput, setNewChannelInput] = useState('');
   const [isAdding, setIsAdding] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchFilter, setSearchFilter] = useState('');
   const [selectedCategoryTab, setSelectedCategoryTab] = useState<string>('All');
 
@@ -58,13 +62,35 @@ export function ChannelsTab({
   const [syncSubs, setSyncSubs] = useState(settings?.includeSubtitles ?? true);
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
 
+  const loadCategories = async () => {
+    try {
+      const data = await api.getCategoriesDetails();
+      if (data) setCategoriesList(data);
+    } catch (err) {
+      console.error('Failed to load categories', err);
+    }
+  };
+
+  useEffect(() => {
+    loadCategories();
+  }, []);
+
+  const handleCategoriesChanged = async () => {
+    await loadCategories();
+    if (onReloadChannels) {
+      await onReloadChannels();
+    }
+  };
+
   // Collect all unique categories
   const allCategories = Array.from(
     new Set([
+      'General',
       'Tech',
       'Entertainment',
       'Finance',
-      'General',
+      'Education',
+      ...categoriesList.map((c) => c.name),
       ...channels.map((c) => (c.category || 'General').trim()),
     ])
   ).filter(Boolean).sort();
@@ -92,6 +118,7 @@ export function ChannelsTab({
     setCustomAddCategory('');
     setIsAdding(false);
     setShowAddModal(false);
+    await handleCategoriesChanged();
   };
 
   const handleUpdateCategorySubmit = async (e: React.FormEvent) => {
@@ -101,6 +128,7 @@ export function ChannelsTab({
     await onUpdateCategory(editingCategoryChannel.id, newCategoryName.trim());
     setEditingCategoryChannel(null);
     setNewCategoryName('');
+    await handleCategoriesChanged();
   };
 
   const handleTriggerSync = (channelIds: string[] | null = null, category: string | null = null) => {
@@ -122,20 +150,6 @@ export function ChannelsTab({
     }
   };
 
-  const toggleSelectCategory = (cat: string) => {
-    const catChannels = channels.filter(
-      (c) => (c.category || 'General').toLowerCase() === cat.toLowerCase()
-    );
-    const catIds = catChannels.map((c) => c.id);
-    const allSelected = catIds.every((id) => selectedChannels.includes(id));
-
-    if (allSelected) {
-      setSelectedChannels(selectedChannels.filter((id) => !catIds.includes(id)));
-    } else {
-      setSelectedChannels(Array.from(new Set([...selectedChannels, ...catIds])));
-    }
-  };
-
   const toggleSelectAll = () => {
     if (selectedChannels.length === channels.length) {
       setSelectedChannels([]);
@@ -144,449 +158,417 @@ export function ChannelsTab({
     }
   };
 
-  // Filter channels based on text search and selected category tab
-  const filteredChannels = channels.filter((c) => {
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await onRefreshMetadata();
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  // Filter channels based on search and selected category
+  const filteredChannels = channels.filter((ch) => {
     const matchesSearch =
-      c.name.toLowerCase().includes(searchFilter.toLowerCase()) ||
-      c.url.toLowerCase().includes(searchFilter.toLowerCase()) ||
-      (c.category || 'General').toLowerCase().includes(searchFilter.toLowerCase());
+      ch.name.toLowerCase().includes(searchFilter.toLowerCase()) ||
+      ch.url.toLowerCase().includes(searchFilter.toLowerCase()) ||
+      (ch.category || '').toLowerCase().includes(searchFilter.toLowerCase());
 
     const matchesCategory =
       selectedCategoryTab === 'All' ||
-      (c.category || 'General').toLowerCase() === selectedCategoryTab.toLowerCase();
+      (ch.category || 'General').toLowerCase() === selectedCategoryTab.toLowerCase();
 
     return matchesSearch && matchesCategory;
   });
 
-  // Group filtered channels by category
-  const groupedCategories = Array.from(
-    new Set(filteredChannels.map((c) => (c.category || 'General').trim()))
-  ).sort();
-
   return (
-    <div className="space-y-10">
-      {/* Editorial Designer Hero Header */}
-      <div className="rounded-3xl border border-border/80 bg-card/80 backdrop-blur-xl p-8 sm:p-10 shadow-sm transition-all">
-        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-8">
-          <div className="space-y-2.5 max-w-2xl">
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-mono tracking-widest uppercase text-muted-foreground bg-secondary/80 px-3 py-1 rounded-full border border-border/60">
-                Channel Curation & Categorization
-              </span>
-              <span className="text-[11px] font-mono text-muted-foreground/80">
-                {channels.length} {channels.length === 1 ? 'Source' : 'Sources'} Active
-              </span>
-            </div>
+    <div className="space-y-8">
+      {/* 1. Clean, Spacious Action Header (Unwanted clutter removed) */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5 border-b border-[var(--border)] pb-6">
+        <div className="flex items-center gap-3.5">
+          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-[var(--text-primary)]">
+            Channels
+          </h1>
+          <span className="counter-badge text-xs px-2.5 py-0.5">
+            {channels.length}
+          </span>
+        </div>
 
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-semibold tracking-tight text-foreground leading-[1.15]">
-              Subscribed Channels
-            </h1>
+        <div className="flex items-center flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="btn btn-secondary h-11 px-4 text-sm font-semibold"
+            title="Refresh channel metadata"
+          >
+            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span>Refresh</span>
+          </button>
 
-            <p className="text-sm sm:text-base text-muted-foreground font-normal leading-relaxed">
-              Organize subscriptions by category (Tech, Entertainment, Finance, etc.), configure sync rules, and manage offline archives.
-            </p>
-          </div>
+          <button
+            type="button"
+            onClick={() => setShowAddModal(true)}
+            className="btn btn-secondary h-11 px-4 text-sm font-semibold"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Add Channel</span>
+          </button>
 
-          {/* Action Button Bar */}
-          <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
-            <Button
-              variant="outline"
-              size="default"
-              onClick={() => onRefreshMetadata()}
-              className="h-11 px-5 text-sm flex-1 sm:flex-initial rounded-2xl bg-secondary/50 hover:bg-secondary border-border/80 text-foreground"
-              title="Refresh channel avatars and metadata"
+          {channels.length > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                if (selectedChannels.length > 0) {
+                  setShowSyncModal(true);
+                } else {
+                  handleTriggerSync(null, selectedCategoryTab !== 'All' ? selectedCategoryTab : null);
+                }
+              }}
+              className="btn btn-primary h-11 px-6 text-sm font-bold shadow-sm"
             >
-              <RefreshCw className="h-4 w-4 mr-2" />
-              <span>Refresh</span>
-            </Button>
-
-            <Button
-              variant="outline"
-              size="default"
-              onClick={() => setShowAddModal(true)}
-              className="h-11 px-5 text-sm flex-1 sm:flex-initial rounded-2xl bg-secondary/50 hover:bg-secondary border-border/80 text-foreground"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              <span>Add Channel</span>
-            </Button>
-
-            <Button
-              size="default"
-              onClick={() => setShowSyncModal(true)}
-              className="h-11 px-6 text-sm flex-1 sm:flex-initial rounded-2xl bg-foreground text-background hover:opacity-90 shadow-sm transition-transform active:scale-[0.98]"
-            >
-              <Play className="h-4 w-4 mr-2 fill-current" />
+              <Play className="h-4 w-4 fill-current mr-2" />
               <span>
                 {selectedChannels.length > 0
-                  ? `Sync (${selectedChannels.length})`
+                  ? `Sync Selected (${selectedChannels.length})`
                   : selectedCategoryTab !== 'All'
                   ? `Sync ${selectedCategoryTab}`
                   : 'Sync All'}
               </span>
-            </Button>
-          </div>
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Category Pills & Reactive Filter Bar */}
+      {/* 2. Category Filter Pills & Category Management Bar */}
       {channels.length > 0 && (
         <div className="space-y-4">
-          {/* Category Filter Pills */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-            <button
-              onClick={() => setSelectedCategoryTab('All')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs sm:text-sm font-medium transition-all duration-200 cursor-pointer select-none shrink-0 ${
-                selectedCategoryTab === 'All'
-                  ? 'bg-foreground text-background font-semibold shadow-xs'
-                  : 'bg-secondary/70 text-muted-foreground hover:text-foreground hover:bg-secondary border border-border/60'
-              }`}
-            >
-              <Layers className="h-3.5 w-3.5" />
-              <span>All Channels</span>
-              <span
-                className={`text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-full ${
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-2.5 overflow-x-auto pb-1 scrollbar-none flex-1">
+              <button
+                type="button"
+                onClick={() => setSelectedCategoryTab('All')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-[var(--radius-full)] text-sm font-semibold border transition-all cursor-pointer select-none shrink-0 ${
                   selectedCategoryTab === 'All'
-                    ? 'bg-background text-foreground'
-                    : 'bg-card text-muted-foreground'
+                    ? 'bg-[var(--primary)] text-[var(--primary-foreground)] border-[var(--primary)] shadow-xs'
+                    : 'bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border-[var(--border)]'
                 }`}
               >
-                {channels.length}
-              </span>
-            </button>
-
-            {allCategories.map((cat) => {
-              const count = channels.filter(
-                (c) => (c.category || 'General').toLowerCase() === cat.toLowerCase()
-              ).length;
-              if (count === 0 && selectedCategoryTab !== cat) return null;
-
-              const isActive = selectedCategoryTab.toLowerCase() === cat.toLowerCase();
-
-              return (
-                <button
-                  key={cat}
-                  onClick={() => setSelectedCategoryTab(cat)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs sm:text-sm font-medium transition-all duration-200 cursor-pointer select-none shrink-0 ${
-                    isActive
-                      ? 'bg-foreground text-background font-semibold shadow-xs'
-                      : 'bg-secondary/70 text-muted-foreground hover:text-foreground hover:bg-secondary border border-border/60'
+                <Layers className="h-4 w-4" />
+                <span>All</span>
+                <span
+                  className={`text-xs font-mono px-2 py-0.5 rounded-[var(--radius-full)] font-bold ${
+                    selectedCategoryTab === 'All'
+                      ? 'bg-white/20 text-white'
+                      : 'bg-[var(--bg-subtle)] text-[var(--text-muted)]'
                   }`}
                 >
-                  <Tag className="h-3.5 w-3.5 opacity-70" />
-                  <span className="capitalize">{cat}</span>
-                  <span
-                    className={`text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-full ${
+                  {channels.length}
+                </span>
+              </button>
+
+              {allCategories.map((cat) => {
+                const count = channels.filter(
+                  (c) => (c.category || 'General').toLowerCase() === cat.toLowerCase()
+                ).length;
+                if (count === 0 && selectedCategoryTab !== cat) return null;
+
+                const isActive = selectedCategoryTab.toLowerCase() === cat.toLowerCase();
+
+                return (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setSelectedCategoryTab(cat)}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-[var(--radius-full)] text-sm font-semibold border transition-all cursor-pointer select-none shrink-0 ${
                       isActive
-                        ? 'bg-background text-foreground'
-                        : 'bg-card text-muted-foreground'
+                        ? 'bg-[var(--primary)] text-[var(--primary-foreground)] border-[var(--primary)] shadow-xs'
+                        : 'bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border-[var(--border)]'
                     }`}
                   >
-                    {count}
-                  </span>
-                </button>
-              );
-            })}
+                    <Tag className="h-3.5 w-3.5" />
+                    <span>{cat}</span>
+                    <span
+                      className={`text-xs font-mono px-2 py-0.5 rounded-[var(--radius-full)] font-bold ${
+                        isActive
+                          ? 'bg-white/20 text-white'
+                          : 'bg-[var(--bg-subtle)] text-[var(--text-muted)]'
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Dedicated Manage Categories Trigger */}
+            <button
+              type="button"
+              onClick={() => setShowManageCategoriesModal(true)}
+              className="btn btn-secondary text-sm h-10 px-4 rounded-[var(--radius-full)] shrink-0 self-start sm:self-auto font-semibold"
+            >
+              <FolderKanban className="h-4 w-4 text-[var(--text-primary)]" />
+              <span>Manage Categories</span>
+            </button>
           </div>
 
-          {/* Search and Bulk Select Row */}
-          <div className="rounded-2xl border border-border/80 bg-secondary/40 backdrop-blur-md p-3.5 sm:p-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shadow-xs">
-            <div className="relative flex-1 max-w-md">
-              <Search className="h-4 w-4 text-muted-foreground absolute left-3.5 top-3.5" />
-              <Input
+          {/* Search & Bulk Select Bar */}
+          <div className="card p-4 sm:p-5 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+            <div className="relative flex-1 max-w-lg">
+              <Search className="h-4.5 w-4.5 text-[var(--text-muted)] absolute left-4 top-3.5" />
+              <input
                 type="text"
-                placeholder="Search channels by name, URL, or category..."
+                placeholder="Search channels by name or category..."
                 value={searchFilter}
                 onChange={(e) => setSearchFilter(e.target.value)}
-                className="pl-10 h-11 text-sm bg-card/80 border-border/80 text-foreground rounded-xl focus:ring-1.5 focus:ring-ring"
+                className="w-full pl-11 pr-4 py-2.5 text-sm bg-[var(--bg-subtle)] border border-[var(--border)] rounded-[var(--radius-md)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--primary)]"
               />
             </div>
 
-            <div className="flex items-center justify-between sm:justify-end gap-3 text-sm text-muted-foreground">
+            <div className="flex items-center justify-between sm:justify-end gap-3 text-sm text-[var(--text-secondary)]">
               {selectedChannels.length > 0 && (
-                <span className="font-mono text-xs bg-card text-foreground px-3.5 py-1.5 rounded-full border border-border/80 font-medium animate-in fade-in duration-200 shadow-xs">
+                <span className="font-mono text-xs text-[var(--text-primary)] font-bold bg-[var(--bg-subtle)] px-3 py-1 rounded-[var(--radius-full)] border border-[var(--border)]">
                   {selectedChannels.length} selected
                 </span>
               )}
-              <Button
-                variant="ghost"
-                size="sm"
+              <button
+                type="button"
                 onClick={toggleSelectAll}
-                className="h-10 px-3.5 text-sm text-muted-foreground hover:text-foreground shrink-0 rounded-xl"
+                className="btn btn-secondary h-10 px-4 text-sm font-semibold"
               >
                 {selectedChannels.length === channels.length ? (
-                  <CheckSquare className="h-4 w-4 mr-2 text-foreground" />
+                  <CheckSquare className="h-4 w-4 text-[var(--text-primary)] mr-1.5" />
                 ) : (
-                  <Square className="h-4 w-4 mr-2" />
+                  <Square className="h-4 w-4 mr-1.5" />
                 )}
-                <span>
-                  {selectedChannels.length === channels.length ? 'Deselect All' : 'Select All'}
-                </span>
-              </Button>
+                <span>{selectedChannels.length === channels.length ? 'Deselect All' : 'Select All'}</span>
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Empty State */}
+      {/* 3. Channels Grid with Large Avatar & Top-Right Selection Box */}
       {channels.length === 0 ? (
-        <div className="text-center py-32 rounded-3xl border border-dashed border-border/80 bg-card/40 backdrop-blur-sm">
-          <div className="h-16 w-16 rounded-2xl bg-secondary/80 text-foreground flex items-center justify-center mx-auto mb-4 shadow-sm">
-            <Tv className="h-8 w-8 text-muted-foreground" />
+        <div className="placeholder-view">
+          <div className="placeholder-box">
+            <div className="placeholder-icon">
+              <Tv className="h-8 w-8" />
+            </div>
+            <h2>No Channels Subscribed</h2>
+            <p>
+              Add your favorite YouTube channels to monitor their uploads and download new videos on schedule.
+            </p>
+            <div className="mt-6 flex justify-center">
+              <button
+                type="button"
+                onClick={() => setShowAddModal(true)}
+                className="btn btn-primary h-11 px-6 text-sm font-bold"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Your First Channel
+              </button>
+            </div>
           </div>
-          <h3 className="text-xl font-semibold text-foreground">No channels added yet</h3>
-          <p className="text-sm text-muted-foreground max-w-sm mx-auto mt-2 mb-6 leading-relaxed">
-            Add YouTube channel URLs with custom categories to organize your offline video library.
-          </p>
-          <Button
-            onClick={() => setShowAddModal(true)}
-            size="lg"
-            className="h-11 px-7 rounded-2xl bg-foreground text-background"
-          >
-            <Plus className="h-4 w-4 mr-2" /> Add First Channel
-          </Button>
         </div>
       ) : filteredChannels.length === 0 ? (
-        <div className="text-center py-24 rounded-3xl border border-dashed border-border/80 bg-card/40 backdrop-blur-sm">
-          <Tag className="h-10 w-10 text-muted-foreground mx-auto mb-3 opacity-60" />
-          <h3 className="text-lg font-semibold text-foreground">No channels found</h3>
-          <p className="text-sm text-muted-foreground mt-1">
-            No channels match your search filter or category selection.
-          </p>
+        <div className="placeholder-view">
+          <div className="placeholder-box">
+            <div className="placeholder-icon">
+              <Search className="h-8 w-8" />
+            </div>
+            <h2>No Matching Channels</h2>
+            <p>No channels match the filter "{searchFilter}".</p>
+            <div className="mt-5 flex justify-center">
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchFilter('');
+                  setSelectedCategoryTab('All');
+                }}
+                className="btn btn-secondary text-sm"
+              >
+                Clear Filters
+              </button>
+            </div>
+          </div>
         </div>
       ) : (
-        /* Categorized Groups View */
-        <div className="space-y-12">
-          {groupedCategories.map((category) => {
-            const categoryChannels = filteredChannels.filter(
-              (c) => (c.category || 'General').trim() === category
-            );
-            if (categoryChannels.length === 0) return null;
-
-            const categoryIds = categoryChannels.map((c) => c.id);
-            const isCategoryFullySelected = categoryIds.every((id) =>
-              selectedChannels.includes(id)
-            );
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredChannels.map((ch) => {
+            const isSelected = selectedChannels.includes(ch.id);
 
             return (
-              <section key={category} className="space-y-5">
-                {/* Category Section Header */}
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-border/80">
-                  <div className="flex items-center gap-3">
-                    <span className="p-2 rounded-xl bg-secondary text-foreground shadow-xs">
-                      <Tag className="h-4 w-4" />
-                    </span>
-                    <div>
-                      <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground capitalize">
-                        {category}
-                      </h2>
-                      <p className="text-xs text-muted-foreground font-mono">
-                        {categoryChannels.length}{' '}
-                        {categoryChannels.length === 1 ? 'channel' : 'channels'} in this category
-                      </p>
+              <div
+                key={ch.id}
+                onClick={() => toggleSelectChannel(ch.id)}
+                className={`task-card relative flex flex-col justify-between gap-5 cursor-pointer transition-all p-6 ${
+                  isSelected
+                    ? 'border-[var(--primary)] bg-[var(--bg-subtle)] shadow-[var(--shadow-md)]'
+                    : 'border-[var(--border)] bg-[var(--bg-surface)] hover:border-[var(--border-strong)]'
+                }`}
+              >
+                {/* Top Row: Big Logo (64px) + Large Channel Name + Top-Right Selection Box */}
+                <div className="flex items-start justify-between gap-4">
+                  {/* Avatar & Channel Details */}
+                  <div className="flex items-center gap-4 min-w-0 flex-1">
+                    {/* Large Prominent Logo (64px) */}
+                    <div className="w-16 h-16 rounded-full overflow-hidden bg-[var(--bg-subtle)] border-2 border-[var(--border)] shrink-0 flex items-center justify-center shadow-xs">
+                      {ch.avatarUrl ? (
+                        <img
+                          src={ch.avatarUrl}
+                          alt={ch.name}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <Tv className="h-7 w-7 text-[var(--text-muted)]" />
+                      )}
+                    </div>
+
+                    {/* Prominent Channel Name & Category */}
+                    <div className="min-w-0 flex-1 space-y-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <h3
+                          className="font-extrabold text-lg sm:text-xl text-[var(--text-primary)] truncate leading-snug tracking-tight"
+                          title={ch.name}
+                        >
+                          {ch.name}
+                        </h3>
+                        <a
+                          href={ch.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-[var(--text-muted)] hover:text-[var(--text-primary)] shrink-0 p-0.5 transition-colors"
+                          title="Open channel on YouTube"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </a>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className="type-pill text-xs font-semibold px-2.5 py-0.5">
+                          {ch.category || 'General'}
+                        </span>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => toggleSelectCategory(category)}
-                      className="h-9 px-3 text-xs text-muted-foreground hover:text-foreground rounded-xl"
-                    >
-                      {isCategoryFullySelected ? (
-                        <CheckSquare className="h-3.5 w-3.5 mr-1.5 text-foreground" />
-                      ) : (
-                        <Square className="h-3.5 w-3.5 mr-1.5" />
-                      )}
-                      <span>
-                        {isCategoryFullySelected ? 'Deselect Category' : 'Select Category'}
-                      </span>
-                    </Button>
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleTriggerSync(categoryIds)}
-                      className="h-9 px-3.5 text-xs rounded-xl bg-secondary/50 hover:bg-secondary border-border/80 text-foreground"
-                    >
-                      <Play className="h-3 w-3 mr-1.5 fill-current" />
-                      <span>Sync {category}</span>
-                    </Button>
+                  {/* Top-Right Selection Box (Prominent & Clear) */}
+                  <div
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleSelectChannel(ch.id);
+                    }}
+                    className={`w-6 h-6 rounded-[var(--radius-sm)] border-2 flex items-center justify-center transition-all shrink-0 cursor-pointer ${
+                      isSelected
+                        ? 'bg-[var(--primary)] text-[var(--primary-foreground)] border-[var(--primary)] shadow-xs'
+                        : 'border-[var(--border-strong)] bg-[var(--bg-surface)] hover:border-[var(--text-primary)]'
+                    }`}
+                    title={isSelected ? 'Deselect channel' : 'Select channel'}
+                  >
+                    {isSelected && <Check className="h-4 w-4 stroke-[3]" />}
                   </div>
                 </div>
 
-                {/* Channels Grid (Max 4 Cards per Row) */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                  {categoryChannels.map((ch) => {
-                    const isSelected = selectedChannels.includes(ch.id);
-                    return (
-                      <div
-                        key={ch.id}
-                        className={`relative group rounded-3xl border bg-card/80 backdrop-blur-xl p-6 sm:p-7 flex flex-col justify-between transition-all duration-300 ease-out select-none shadow-sm hover:-translate-y-1 hover:shadow-xl hover:border-foreground/40 ${
-                          isSelected
-                            ? 'border-foreground ring-2 ring-foreground/20 bg-secondary/40'
-                            : 'border-border/80'
-                        }`}
-                      >
-                        {/* Select Toggle Button */}
-                        <button
-                          type="button"
-                          onClick={() => toggleSelectChannel(ch.id)}
-                          className="absolute top-5 right-5 text-muted-foreground hover:text-foreground z-10 transition-colors cursor-pointer p-1 rounded-lg hover:bg-secondary/60"
-                          title={isSelected ? 'Deselect channel' : 'Select channel'}
-                        >
-                          {isSelected ? (
-                            <CheckSquare className="h-5 w-5 text-foreground" />
-                          ) : (
-                            <Square className="h-5 w-5 opacity-40 group-hover:opacity-100" />
-                          )}
-                        </button>
+                {/* Footer: Last Synced + Action Buttons */}
+                <div className="border-t border-[var(--border)] pt-4 flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-mono text-[var(--text-muted)]">
+                    <span className="font-semibold">Synced:</span>
+                    <span className="text-[var(--text-secondary)] font-medium">
+                      {formatDate(ch.lastSyncedAt || ch.createdAt)}
+                    </span>
+                  </div>
 
-                        {/* Channel Profile with Vivid Colored Avatar */}
-                        <div>
-                          <div className="flex items-start gap-4 mb-4 pr-6">
-                            <div className="h-16 w-16 rounded-full overflow-hidden bg-secondary border border-border/80 shrink-0 flex items-center justify-center ring-2 ring-border/70 group-hover:ring-foreground/30 transition-all shadow-xs">
-                              {ch.avatarUrl ? (
-                                <img
-                                  src={ch.avatarUrl}
-                                  alt={ch.name}
-                                  className="h-full w-full object-cover"
-                                  loading="lazy"
-                                />
-                              ) : (
-                                <Tv className="h-7 w-7 text-muted-foreground" />
-                              )}
-                            </div>
-                            <div className="min-w-0 flex-1 pt-1">
-                              <h3
-                                className="font-semibold text-base sm:text-lg text-foreground truncate leading-snug tracking-tight"
-                                title={ch.name}
-                              >
-                                {ch.name || 'Loading...'}
-                              </h3>
-                              <a
-                                href={ch.url}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-xs sm:text-sm font-mono text-muted-foreground hover:text-foreground truncate flex items-center gap-1.5 mt-1 opacity-80 group-hover:opacity-100 transition-opacity"
-                              >
-                                <span className="truncate">
-                                  {ch.url.replace('https://www.youtube.com/', '')}
-                                </span>
-                                <ExternalLink className="h-3 w-3 shrink-0 opacity-60" />
-                              </a>
-                            </div>
-                          </div>
-
-                          {/* Category Tag (Click to Change) */}
-                          <div className="mb-4">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setEditingCategoryChannel(ch);
-                                setNewCategoryName(ch.category || 'General');
-                              }}
-                              className="inline-flex items-center gap-1.5 text-xs font-mono px-3 py-1 rounded-full bg-secondary/80 text-muted-foreground hover:text-foreground hover:bg-secondary border border-border/70 transition-all cursor-pointer group/cat"
-                              title="Click to change category"
-                            >
-                              <Tag className="h-3 w-3 opacity-60 group-hover/cat:opacity-100" />
-                              <span className="font-medium capitalize truncate max-w-[130px]">
-                                {ch.category || 'General'}
-                              </span>
-                              <Edit3 className="h-2.5 w-2.5 opacity-40 group-hover/cat:opacity-100 ml-0.5" />
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Footer Sync Status & Quick Actions */}
-                        <div className="pt-4 border-t border-border/70 flex items-center justify-between text-xs sm:text-sm text-muted-foreground">
-                          <span className="font-mono truncate">
-                            {ch.lastSyncedAt ? (
-                              <span className="flex items-center gap-1.5 text-foreground font-medium">
-                                <Check className="h-3.5 w-3.5 text-success" />
-                                {formatDate(ch.lastSyncedAt)}
-                              </span>
-                            ) : (
-                              <span className="opacity-50">Never synced</span>
-                            )}
-                          </span>
-
-                          <div className="flex items-center gap-1.5">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-9 w-9 text-muted-foreground hover:text-foreground rounded-xl hover:bg-secondary"
-                              onClick={() => handleTriggerSync([ch.id])}
-                              title="Sync this channel now"
-                            >
-                              <Play className="h-4 w-4 fill-current" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-9 w-9 text-muted-foreground hover:text-foreground opacity-60 hover:opacity-100 rounded-xl hover:bg-secondary"
-                              onClick={() => onRemoveChannel(ch.id)}
-                              title="Remove channel"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
+                  <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      type="button"
+                      onClick={() => handleTriggerSync([ch.id])}
+                      className="btn-icon h-9 w-9 flex items-center justify-center"
+                      title="Sync this channel now"
+                    >
+                      <Play className="h-4 w-4 text-[var(--text-primary)] fill-current" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingCategoryChannel(ch);
+                        setNewCategoryName(ch.category || 'General');
+                      }}
+                      className="btn-icon h-9 w-9 flex items-center justify-center"
+                      title="Change category"
+                    >
+                      <Edit2 className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onRemoveChannel(ch.id)}
+                      className="btn-icon h-9 w-9 flex items-center justify-center hover:text-[var(--danger)]"
+                      title="Remove channel"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
-              </section>
+              </div>
             );
           })}
         </div>
       )}
 
-      {/* Add Channel Modal (with Category Selection) */}
+      {/* 4. Add Channel Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="max-w-lg w-full rounded-3xl border border-border/80 bg-card/95 backdrop-blur-2xl p-8 space-y-6 shadow-2xl animate-in fade-in-50 zoom-in-95 duration-200">
-            <div className="space-y-1.5">
-              <span className="text-[11px] font-mono tracking-widest uppercase text-muted-foreground">
-                New Subscription
-              </span>
-              <h3 className="text-2xl font-bold flex items-center gap-2.5 text-foreground">
-                <Plus className="h-5 w-5 text-foreground" /> Add YouTube Channel(s)
-              </h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                Paste single or multiple channel URLs and select a category.
-              </p>
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="card max-w-lg w-full p-7 space-y-6 shadow-xl animate-in fade-in duration-150">
+            <div className="flex items-start justify-between border-b border-[var(--border)] pb-4">
+              <div>
+                <h3 className="text-xl font-bold text-[var(--text-primary)]">
+                  Add YouTube Channel(s)
+                </h3>
+                <p className="text-xs text-[var(--text-muted)] mt-1">
+                  Paste channel URLs to subscribe and monitor.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddModal(false)}
+                className="btn-icon"
+              >
+                <X className="h-5 w-5" />
+              </button>
             </div>
 
-            <form onSubmit={handleAddSubmit} className="space-y-5">
-              <div className="space-y-1.5">
-                <label className="block font-medium text-foreground text-xs uppercase tracking-wider font-mono">
-                  Channel URLs
+            <form onSubmit={handleAddSubmit} className="space-y-5 text-sm">
+              <div className="space-y-2">
+                <label className="font-semibold text-[var(--text-primary)]">
+                  Channel URLs (one per line)
                 </label>
                 <textarea
                   value={newChannelInput}
                   onChange={(e) => setNewChannelInput(e.target.value)}
-                  placeholder="https://www.youtube.com/@channel&#10;https://www.youtube.com/@channel2"
+                  placeholder="https://www.youtube.com/@mkbhd&#10;https://www.youtube.com/@Fireship"
                   rows={4}
-                  className="w-full bg-secondary/60 border border-border/80 rounded-2xl p-4 text-sm text-foreground placeholder:text-muted-foreground font-mono focus:outline-none focus:ring-2 focus:ring-ring"
+                  className="w-full bg-[var(--bg-subtle)] border border-[var(--border)] rounded-[var(--radius-md)] p-3 text-sm font-mono text-[var(--text-primary)] focus:outline-none focus:border-[var(--primary)]"
+                  autoFocus
                 />
               </div>
 
-              {/* Category Assignment */}
               <div className="space-y-2">
-                <label className="block font-medium text-foreground text-xs uppercase tracking-wider font-mono">
-                  Assign Category
-                </label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                <label className="font-semibold text-[var(--text-primary)]">Assign Category</label>
+                <div className="flex flex-wrap gap-2">
                   {allCategories.map((cat) => (
                     <button
                       key={cat}
                       type="button"
-                      onClick={() => setAddChannelCategory(cat)}
-                      className={`px-3.5 py-2 rounded-xl text-xs font-medium border text-center transition-all cursor-pointer ${
-                        addChannelCategory === cat
-                          ? 'bg-foreground text-background font-semibold border-foreground shadow-xs'
-                          : 'bg-secondary/60 text-muted-foreground hover:text-foreground border-border/80'
+                      onClick={() => {
+                        setAddChannelCategory(cat);
+                        setCustomAddCategory('');
+                      }}
+                      className={`px-3.5 py-1.5 rounded-[var(--radius-sm)] text-xs font-bold border cursor-pointer ${
+                        addChannelCategory === cat && !customAddCategory
+                          ? 'bg-[var(--primary)] text-white border-[var(--primary)]'
+                          : 'bg-[var(--bg-subtle)] text-[var(--text-secondary)] border-[var(--border)] hover:text-[var(--text-primary)]'
                       }`}
                     >
                       {cat}
@@ -595,10 +577,10 @@ export function ChannelsTab({
                   <button
                     type="button"
                     onClick={() => setAddChannelCategory('__custom__')}
-                    className={`px-3.5 py-2 rounded-xl text-xs font-medium border text-center transition-all cursor-pointer ${
+                    className={`px-3.5 py-1.5 rounded-[var(--radius-sm)] text-xs font-bold border cursor-pointer ${
                       addChannelCategory === '__custom__'
-                        ? 'bg-foreground text-background font-semibold border-foreground shadow-xs'
-                        : 'bg-secondary/60 text-muted-foreground hover:text-foreground border-border/80'
+                        ? 'bg-[var(--primary)] text-white border-[var(--primary)]'
+                        : 'bg-[var(--bg-subtle)] text-[var(--text-secondary)] border-[var(--border)]'
                     }`}
                   >
                     + Custom
@@ -606,206 +588,203 @@ export function ChannelsTab({
                 </div>
 
                 {addChannelCategory === '__custom__' && (
-                  <Input
+                  <input
                     type="text"
-                    placeholder="Enter new category name..."
+                    placeholder="Enter custom category name..."
                     value={customAddCategory}
                     onChange={(e) => setCustomAddCategory(e.target.value)}
-                    className="h-10 text-xs bg-secondary/70 border-border/80 rounded-xl text-foreground mt-2"
+                    className="w-full mt-2 h-10 px-3 text-sm bg-[var(--bg-subtle)] border border-[var(--border)] rounded-[var(--radius-sm)] text-[var(--text-primary)]"
                     autoFocus
                   />
                 )}
               </div>
 
-              <div className="flex justify-end gap-3 pt-2">
-                <Button
+              <div className="flex justify-end gap-3 pt-3 border-t border-[var(--border)]">
+                <button
                   type="button"
-                  variant="outline"
-                  size="default"
                   onClick={() => setShowAddModal(false)}
-                  className="h-11 px-5 rounded-2xl"
+                  className="btn btn-secondary text-sm h-10 px-4"
                 >
                   Cancel
-                </Button>
-                <Button
+                </button>
+                <button
                   type="submit"
-                  size="default"
-                  disabled={isAdding}
-                  className="h-11 px-6 rounded-2xl bg-foreground text-background"
+                  disabled={isAdding || !newChannelInput.trim()}
+                  className="btn btn-primary text-sm h-10 px-5 font-bold"
                 >
-                  {isAdding ? 'Adding...' : 'Add Channels'}
-                </Button>
+                  {isAdding ? 'Adding Channels...' : 'Add Channels'}
+                </button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* Edit Category Modal */}
+      {/* 5. Change Category Modal */}
       {editingCategoryChannel && (
-        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="max-w-md w-full rounded-3xl border border-border/80 bg-card/95 backdrop-blur-2xl p-8 space-y-6 shadow-2xl animate-in fade-in-50 zoom-in-95 duration-200">
-            <div className="space-y-1.5">
-              <span className="text-[11px] font-mono tracking-widest uppercase text-muted-foreground">
-                Category Reassignment
-              </span>
-              <h3 className="text-2xl font-bold flex items-center gap-2.5 text-foreground">
-                <Tag className="h-5 w-5 text-foreground" /> Change Category
-              </h3>
-              <p className="text-sm text-muted-foreground leading-relaxed truncate">
-                Update category for <strong>{editingCategoryChannel.name}</strong>
-              </p>
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="card max-w-md w-full p-7 space-y-5 shadow-xl">
+            <div className="flex items-start justify-between border-b border-[var(--border)] pb-3">
+              <div>
+                <h3 className="text-lg font-bold text-[var(--text-primary)]">
+                  Change Category
+                </h3>
+                <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                  Channel: <strong>{editingCategoryChannel.name}</strong>
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingCategoryChannel(null)}
+                className="btn-icon"
+              >
+                <X className="h-5 w-5" />
+              </button>
             </div>
 
-            <form onSubmit={handleUpdateCategorySubmit} className="space-y-5">
-              {/* Quick Pick Existing Categories */}
+            <form onSubmit={handleUpdateCategorySubmit} className="space-y-4 text-sm">
               <div className="space-y-2">
-                <label className="block font-medium text-foreground text-xs uppercase tracking-wider font-mono">
-                  Quick Select
-                </label>
+                <label className="font-semibold text-[var(--text-primary)]">Select Category</label>
                 <div className="flex flex-wrap gap-2">
                   {allCategories.map((cat) => (
                     <button
                       key={cat}
                       type="button"
                       onClick={() => setNewCategoryName(cat)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-medium border transition-all cursor-pointer ${
-                        newCategoryName.toLowerCase() === cat.toLowerCase()
-                          ? 'bg-foreground text-background font-semibold border-foreground'
-                          : 'bg-secondary/60 text-muted-foreground hover:text-foreground border-border/80'
+                      className={`px-3 py-1.5 rounded-[var(--radius-sm)] text-xs font-bold border cursor-pointer ${
+                        newCategoryName === cat
+                          ? 'bg-[var(--primary)] text-white border-[var(--primary)]'
+                          : 'bg-[var(--bg-subtle)] text-[var(--text-secondary)] border-[var(--border)]'
                       }`}
                     >
                       {cat}
                     </button>
                   ))}
                 </div>
+
+                <div className="pt-2">
+                  <label className="font-medium text-xs text-[var(--text-muted)]">Or Type Name:</label>
+                  <input
+                    type="text"
+                    value={newCategoryName}
+                    onChange={(e) => setNewCategoryName(e.target.value)}
+                    className="w-full mt-1.5 h-10 px-3 text-sm bg-[var(--bg-subtle)] border border-[var(--border)] rounded-[var(--radius-sm)] text-[var(--text-primary)]"
+                  />
+                </div>
               </div>
 
-              {/* Custom Input */}
-              <div className="space-y-1.5">
-                <label className="block font-medium text-foreground text-xs uppercase tracking-wider font-mono">
-                  Category Name
-                </label>
-                <Input
-                  type="text"
-                  placeholder="e.g. Tech, Entertainment, Finance..."
-                  value={newCategoryName}
-                  onChange={(e) => setNewCategoryName(e.target.value)}
-                  className="h-11 text-sm bg-secondary/70 border-border/80 rounded-xl text-foreground"
-                  autoFocus
-                />
-              </div>
-
-              <div className="flex justify-end gap-3 pt-2">
-                <Button
+              <div className="flex justify-end gap-3 pt-3 border-t border-[var(--border)]">
+                <button
                   type="button"
-                  variant="outline"
-                  size="default"
                   onClick={() => setEditingCategoryChannel(null)}
-                  className="h-11 px-5 rounded-2xl"
+                  className="btn btn-secondary text-sm h-10 px-4"
                 >
                   Cancel
-                </Button>
-                <Button
+                </button>
+                <button
                   type="submit"
-                  size="default"
-                  className="h-11 px-6 rounded-2xl bg-foreground text-background"
+                  disabled={!newCategoryName.trim()}
+                  className="btn btn-primary text-sm h-10 px-5 font-bold"
                 >
                   Save Category
-                </Button>
+                </button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* Sync Configuration Modal */}
+      {/* 6. Sync Options Modal */}
       {showSyncModal && (
-        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="max-w-md w-full rounded-3xl border border-border/80 bg-card/95 backdrop-blur-2xl p-8 space-y-6 shadow-2xl animate-in fade-in-50 zoom-in-95 duration-200">
-            <div className="space-y-1.5">
-              <span className="text-[11px] font-mono tracking-widest uppercase text-muted-foreground">
-                Execution Parameters
-              </span>
-              <h3 className="text-2xl font-bold flex items-center gap-2.5 text-foreground">
-                <SlidersHorizontal className="h-5 w-5 text-foreground" /> Sync Configuration
-              </h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                Configure download parameters for this run.
-              </p>
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="card max-w-md w-full p-7 space-y-5 shadow-xl">
+            <div className="flex items-start justify-between border-b border-[var(--border)] pb-3">
+              <div>
+                <h3 className="text-lg font-bold text-[var(--text-primary)]">
+                  Sync Channels
+                </h3>
+                <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                  {selectedChannels.length} channel(s) selected
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSyncModal(false)}
+                className="btn-icon"
+              >
+                <X className="h-5 w-5" />
+              </button>
             </div>
 
             <div className="space-y-4 text-sm">
               <div className="space-y-1.5">
-                <label className="block font-medium text-foreground text-xs uppercase tracking-wider font-mono">
-                  Max Resolution
-                </label>
+                <label className="font-semibold text-[var(--text-primary)]">Download Resolution</label>
                 <select
                   value={syncRes}
                   onChange={(e) => setSyncRes(e.target.value)}
-                  className="w-full bg-secondary/70 border border-border/80 rounded-xl px-4 py-2.5 text-foreground text-sm focus:ring-2 focus:ring-ring"
+                  className="w-full h-10 px-3 text-sm bg-[var(--bg-subtle)] border border-[var(--border)] rounded-[var(--radius-sm)] text-[var(--text-primary)]"
                 >
-                  <option value="1080">1080p (Full HD)</option>
-                  <option value="720">720p (HD)</option>
-                  <option value="4k">4K (2160p)</option>
+                  <option value="1080">1080p Full HD</option>
+                  <option value="720">720p HD</option>
+                  <option value="4k">4K Ultra HD</option>
                   <option value="best">Best Available</option>
                   <option value="audio">Audio Only (MP3)</option>
                 </select>
               </div>
 
               <div className="space-y-1.5">
-                <label className="block font-medium text-foreground text-xs uppercase tracking-wider font-mono">
-                  Date Range (Days Ago)
-                </label>
-                <Input
+                <label className="font-semibold text-[var(--text-primary)]">Date Range (Days Limit)</label>
+                <input
                   type="number"
                   value={syncDays}
                   onChange={(e) => setSyncDays(Number(e.target.value))}
                   min={1}
                   max={365}
-                  className="h-11 text-sm bg-secondary/70 border-border/80 text-foreground"
+                  className="w-full h-10 px-3 text-sm bg-[var(--bg-subtle)] border border-[var(--border)] rounded-[var(--radius-sm)] text-[var(--text-primary)]"
                 />
-                <span className="text-xs text-muted-foreground block">
-                  Only uploads published in the last {syncDays} days will be synced.
+                <span className="text-xs text-[var(--text-muted)]">
+                  Channels will be skipped as soon as the latest upload exceeds {syncDays} days.
                 </span>
               </div>
 
-              <div className="flex items-center justify-between py-3 border-t border-b border-border/80">
-                <div>
-                  <span className="font-medium text-foreground block">Embed Subtitles</span>
-                  <span className="text-xs text-muted-foreground">English & Tamil SRT subtitles</span>
-                </div>
+              <div className="flex items-center justify-between p-3 rounded-[var(--radius-sm)] bg-[var(--bg-subtle)] border border-[var(--border)]">
+                <span className="font-medium text-[var(--text-primary)]">Include Subtitles</span>
                 <input
                   type="checkbox"
                   checked={syncSubs}
                   onChange={(e) => setSyncSubs(e.target.checked)}
-                  className="h-4 w-4 accent-foreground rounded cursor-pointer"
+                  className="h-4.5 w-4.5 accent-[var(--primary)] cursor-pointer"
                 />
               </div>
-            </div>
 
-            <div className="flex justify-end gap-3 pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="default"
-                onClick={() => setShowSyncModal(false)}
-                className="h-11 px-5 rounded-2xl"
-              >
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                size="default"
-                onClick={() => handleTriggerSync()}
-                className="h-11 px-6 rounded-2xl bg-foreground text-background"
-              >
-                <Play className="h-4 w-4 mr-2 fill-current" /> Start Sync
-              </Button>
+              <div className="flex justify-end gap-3 pt-3 border-t border-[var(--border)]">
+                <button
+                  type="button"
+                  onClick={() => setShowSyncModal(false)}
+                  className="btn btn-secondary text-sm h-10 px-4"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleTriggerSync()}
+                  className="btn btn-primary text-sm h-10 px-5 font-bold"
+                >
+                  <Play className="h-4 w-4 mr-1.5 fill-current" />
+                  Start Sync
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
+
+      {/* 7. Dedicated Manage Categories Modal */}
+      <ManageCategoriesModal
+        isOpen={showManageCategoriesModal}
+        onClose={() => setShowManageCategoriesModal(false)}
+        onCategoriesChanged={handleCategoriesChanged}
+      />
     </div>
   );
 }

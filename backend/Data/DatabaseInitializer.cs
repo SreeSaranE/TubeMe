@@ -48,6 +48,33 @@ namespace YoutubeDownloader.Data
                 }
                 catch { }
 
+                // 1b. Categories Table
+                cmd.CommandText = @"
+                    CREATE TABLE IF NOT EXISTS categories (
+                        id TEXT PRIMARY KEY,
+                        name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+                        created_at TEXT NOT NULL
+                    );";
+                cmd.ExecuteNonQuery();
+
+                // Seed default categories
+                cmd.CommandText = @"
+                    INSERT OR IGNORE INTO categories (id, name, created_at) VALUES 
+                    (lower(hex(randomblob(16))), 'General', datetime('now')),
+                    (lower(hex(randomblob(16))), 'Tech', datetime('now')),
+                    (lower(hex(randomblob(16))), 'Entertainment', datetime('now')),
+                    (lower(hex(randomblob(16))), 'Finance', datetime('now')),
+                    (lower(hex(randomblob(16))), 'Education', datetime('now'));";
+                cmd.ExecuteNonQuery();
+
+                // Also import any distinct categories already present in channels
+                cmd.CommandText = @"
+                    INSERT OR IGNORE INTO categories (id, name, created_at)
+                    SELECT lower(hex(randomblob(16))), category, datetime('now')
+                    FROM channels
+                    WHERE category IS NOT NULL AND category != '';";
+                cmd.ExecuteNonQuery();
+
                 // 2. Settings Table
                 cmd.CommandText = @"
                     CREATE TABLE IF NOT EXISTS settings (

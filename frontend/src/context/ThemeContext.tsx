@@ -1,47 +1,55 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
+export type ThemeMode = 'light' | 'dark';
+
 interface ThemeContextType {
+  theme: ThemeMode;
   isDark: boolean;
+  toggleTheme: () => void;
+  setTheme: (theme: ThemeMode) => void;
 }
 
-const ThemeContext = createContext<ThemeContextType>({ isDark: true });
+const ThemeContext = createContext<ThemeContextType>({
+  theme: 'light',
+  isDark: false,
+  toggleTheme: () => {},
+  setTheme: () => {},
+});
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [isDark, setIsDark] = useState<boolean>(() => {
+  const [theme, setThemeState] = useState<ThemeMode>(() => {
     if (typeof window !== 'undefined') {
-      return window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const saved = localStorage.getItem('tubeme-theme') as ThemeMode;
+      if (saved === 'dark' || saved === 'light') return saved;
+      return 'light'; // Default to Modern Light Dashboard
     }
-    return true;
+    return 'light';
   });
 
+  const isDark = theme === 'dark';
+
   useEffect(() => {
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const root = document.documentElement;
+    if (theme === 'dark') {
+      root.classList.add('dark');
+      root.classList.remove('light');
+    } else {
+      root.classList.remove('dark');
+      root.classList.add('light');
+    }
+    localStorage.setItem('tubeme-theme', theme);
+  }, [theme]);
 
-    const updateTheme = (e: MediaQueryListEvent | MediaQueryList) => {
-      const dark = e.matches;
-      setIsDark(dark);
-      const root = document.documentElement;
-      if (dark) {
-        root.classList.add('dark');
-        root.classList.remove('light');
-      } else {
-        root.classList.remove('dark');
-        root.classList.add('light');
-      }
-    };
+  const toggleTheme = () => {
+    setThemeState((prev) => (prev === 'light' ? 'dark' : 'light'));
+  };
 
-    // Initialize
-    updateTheme(mediaQuery);
-
-    // Listen for system theme changes automatically
-    const listener = (e: MediaQueryListEvent) => updateTheme(e);
-    mediaQuery.addEventListener('change', listener);
-
-    return () => mediaQuery.removeEventListener('change', listener);
-  }, []);
+  const setTheme = (newTheme: ThemeMode) => {
+    setThemeState(newTheme);
+  };
 
   return (
-    <ThemeContext.Provider value={{ isDark }}>
+    <ThemeContext.Provider value={{ theme, isDark, toggleTheme, setTheme }}>
       {children}
     </ThemeContext.Provider>
   );

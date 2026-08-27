@@ -1,14 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import { ThemeProvider } from '@/context/ThemeContext';
+import { SidebarProvider } from '@/components/ui/sidebar';
 import { Navbar } from '@/components/Navbar';
+import { AppSidebar } from '@/components/AppSidebar';
 import { ChannelsTab } from '@/components/ChannelsTab';
 import { SearchTab } from '@/components/SearchTab';
 import { DownloadsTab } from '@/components/DownloadsTab';
 import { LibraryTab } from '@/components/LibraryTab';
 import { SettingsTab } from '@/components/SettingsTab';
 import { api, createSignalRConnection } from '@/services/api';
-import { ChannelModel, DownloadItem, AppSettingsModel, StartDownloadRequest, ChannelSyncRequest } from '@/types';
+import {
+  ChannelModel,
+  DownloadItem,
+  AppSettingsModel,
+  StartDownloadRequest,
+  ChannelSyncRequest,
+} from '@/types';
 
 function AppContent() {
   const navigate = useNavigate();
@@ -126,53 +134,62 @@ function AppContent() {
   ).length;
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col font-sans antialiased bg-ambient-glow selection:bg-foreground selection:text-background">
-      {/* Floating Island Navbar */}
+    <div className="min-h-screen bg-[var(--bg-app)] text-[var(--text-primary)] flex flex-col font-sans antialiased">
+      {/* 1. Top Simple Navbar */}
       <Navbar activeDownloadsCount={activeDownloadsCount} />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pb-24 sm:pb-32">
-        <Routes>
-          <Route
-            path="/"
-            element={
-              <ChannelsTab
-                channels={channels}
-                onAddChannel={handleAddChannel}
-                onUpdateCategory={handleUpdateCategory}
-                onRemoveChannel={handleRemoveChannel}
-                onSyncChannels={handleSyncChannels}
-                onRefreshMetadata={handleRefreshMetadata}
-                settings={settings}
-              />
-            }
-          />
-          <Route
-            path="/search"
-            element={
-              <SearchTab onStartDownload={handleStartDownload} settings={settings} />
-            }
-          />
-          <Route
-            path="/downloads"
-            element={
-              <DownloadsTab
-                downloads={downloads}
-                onCancelDownload={handleCancelDownload}
-                onClearHistory={handleClearHistory}
-              />
-            }
-          />
-          <Route path="/queue" element={<Navigate to="/downloads" replace />} />
-          <Route path="/library" element={<LibraryTab />} />
-          <Route
-            path="/settings"
-            element={
-              <SettingsTab settings={settings} onSettingsSaved={(s) => setSettings(s)} />
-            }
-          />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </main>
+      {/* 2. Body: shadcn Sidebar + Main Viewport */}
+      <div className="flex-1 flex w-full">
+        <AppSidebar
+          channelsCount={channels.length}
+          activeDownloadsCount={activeDownloadsCount}
+        />
+
+        <main className="flex-1 min-w-0 px-6 sm:px-10 lg:px-12 py-8 sm:py-10 max-w-7xl mx-auto w-full">
+          <Routes>
+            <Route
+              path="/"
+              element={
+                <ChannelsTab
+                  channels={channels}
+                  onAddChannel={handleAddChannel}
+                  onUpdateCategory={handleUpdateCategory}
+                  onRemoveChannel={handleRemoveChannel}
+                  onSyncChannels={handleSyncChannels}
+                  onRefreshMetadata={handleRefreshMetadata}
+                  onReloadChannels={loadData}
+                  settings={settings}
+                />
+              }
+            />
+            <Route
+              path="/search"
+              element={
+                <SearchTab onStartDownload={handleStartDownload} settings={settings} />
+              }
+            />
+            <Route
+              path="/downloads"
+              element={
+                <DownloadsTab
+                  downloads={downloads}
+                  onCancelDownload={handleCancelDownload}
+                  onClearHistory={handleClearHistory}
+                />
+              }
+            />
+            <Route path="/queue" element={<Navigate to="/downloads" replace />} />
+            <Route path="/library" element={<LibraryTab />} />
+            <Route
+              path="/settings"
+              element={
+                <SettingsTab settings={settings} onSettingsSaved={(s) => setSettings(s)} />
+              }
+            />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </main>
+      </div>
     </div>
   );
 }
@@ -181,7 +198,9 @@ export function App() {
   return (
     <ThemeProvider>
       <BrowserRouter>
-        <AppContent />
+        <SidebarProvider defaultOpen={true}>
+          <AppContent />
+        </SidebarProvider>
       </BrowserRouter>
     </ThemeProvider>
   );

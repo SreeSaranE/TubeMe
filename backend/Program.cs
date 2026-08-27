@@ -21,6 +21,7 @@ builder.Services.AddSignalR();
 builder.Services.AddSingleton<IDbConnectionFactory, SqliteDbConnectionFactory>();
 builder.Services.AddSingleton<IDatabaseInitializer, DatabaseInitializer>();
 builder.Services.AddSingleton<IChannelRepository, ChannelRepository>();
+builder.Services.AddSingleton<ICategoryRepository, CategoryRepository>();
 builder.Services.AddSingleton<ISettingsRepository, SettingsRepository>();
 builder.Services.AddSingleton<IDownloadRepository, DownloadRepository>();
 
@@ -30,6 +31,7 @@ builder.Services.AddSingleton<IDownloadRepository, DownloadRepository>();
 builder.Services.AddSingleton<ISettingsService, SettingsService>();
 builder.Services.AddSingleton<IYtDlpService, YtDlpService>();
 builder.Services.AddSingleton<IChannelService, ChannelService>();
+builder.Services.AddSingleton<ICategoryService, CategoryService>();
 builder.Services.AddSingleton<IMediaFileService, MediaFileService>();
 
 // Register DownloadQueueService as Singleton, Interface implementation, and Background HostedService
@@ -70,6 +72,7 @@ app.UseRouting();
 // ==========================================
 var apiGroup = app.MapGroup("/api");
 apiGroup.MapGroup("/channels").MapChannelEndpoints();
+apiGroup.MapGroup("/categories").MapCategoryEndpoints();
 apiGroup.MapGroup("/downloads").MapDownloadEndpoints();
 apiGroup.MapGroup("/files").MapFileEndpoints();
 apiGroup.MapGroup("/search").MapSearchEndpoints();
