@@ -6,12 +6,13 @@ import {
   Search,
   Download,
   Settings,
+  Video,
 } from 'lucide-react';
 import {
   Sidebar,
+  SidebarHeader,
   SidebarContent,
   SidebarGroup,
-  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
@@ -27,7 +28,7 @@ interface AppSidebarProps {
 
 export function AppSidebar({ channelsCount, activeDownloadsCount }: AppSidebarProps) {
   const location = useLocation();
-  const { open, isMobile, setOpenMobile } = useSidebar();
+  const { open, toggleSidebar, isMobile, setOpenMobile } = useSidebar();
   const isCompact = !open && !isMobile;
 
   const isLinkActive = (path: string) => {
@@ -54,7 +55,6 @@ export function AppSidebar({ channelsCount, activeDownloadsCount }: AppSidebarPr
       path: '/channels',
       label: 'Channels',
       icon: Tv,
-      badge: channelsCount > 0 ? channelsCount : undefined,
     },
     {
       path: '/search',
@@ -76,9 +76,30 @@ export function AppSidebar({ channelsCount, activeDownloadsCount }: AppSidebarPr
 
   return (
     <Sidebar>
+      {/* 1. Header: Fixed height & clicking logo/title toggles the sidebar */}
+      <SidebarHeader className={`h-16 flex items-center shrink-0 ${isCompact ? 'justify-center px-0' : 'px-4'}`}>
+        <button
+          type="button"
+          onClick={toggleSidebar}
+          className={`flex items-center gap-3 select-none hover:opacity-85 transition-opacity cursor-pointer border-none bg-transparent p-0 ${
+            isCompact ? 'justify-center w-full' : 'w-full'
+          }`}
+          title={open ? 'Collapse sidebar (Ctrl+B)' : 'Expand sidebar (Ctrl+B)'}
+        >
+          <div className="h-8 w-8 rounded-[var(--radius-sm)] bg-[var(--primary)] text-[var(--primary-foreground)] flex items-center justify-center font-medium text-xs shrink-0 shadow-xs">
+            <Video className="h-4.5 w-4.5 fill-current" />
+          </div>
+          {!isCompact && (
+            <span className="font-semibold text-base tracking-tight text-[var(--text-primary)] truncate">
+              TubeMe
+            </span>
+          )}
+        </button>
+      </SidebarHeader>
+
+      {/* 2. Navigation Items */}
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Menu</SidebarGroupLabel>
           <SidebarMenu>
             {navItems.map((item) => {
               const Icon = item.icon;
@@ -102,11 +123,18 @@ export function AppSidebar({ channelsCount, activeDownloadsCount }: AppSidebarPr
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter>
-        <div className="status-chip connected text-xs px-2.5 py-1 w-fit">
-          <span className="status-dot"></span>
-          {!isCompact ? <span>Engine Ready</span> : null}
-        </div>
+      {/* 3. Footer: Centered in minimized mode, aligned left when expanded */}
+      <SidebarFooter className={`shrink-0 h-14 flex items-center ${isCompact ? 'justify-center px-0' : 'px-4'}`}>
+        {isCompact ? (
+          <div className="status-chip connected compact" title="Engine Ready">
+            <span className="status-dot"></span>
+          </div>
+        ) : (
+          <div className="status-chip connected text-xs px-2.5 py-1 w-fit">
+            <span className="status-dot"></span>
+            <span>Engine Ready</span>
+          </div>
+        )}
       </SidebarFooter>
     </Sidebar>
   );

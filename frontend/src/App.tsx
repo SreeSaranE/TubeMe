@@ -134,7 +134,7 @@ function AppContent() {
   ).length;
 
   return (
-    <div className="min-h-screen bg-[var(--bg-app)] text-[var(--text-primary)] flex w-full font-sans antialiased">
+    <div className="min-h-screen bg-(--bg-app) text-(--text-primary) flex w-full font-sans antialiased">
       <AppSidebar
         channelsCount={channels.length}
         activeDownloadsCount={activeDownloadsCount}

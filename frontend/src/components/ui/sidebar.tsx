@@ -124,7 +124,7 @@ export function Sidebar({ children }: { children: React.ReactNode }) {
 
   return (
     <aside
-      className={`sticky top-[56px] h-[calc(100vh-56px)] bg-[var(--bg-surface)] border-r border-[var(--border)] transition-all duration-200 flex flex-col shrink-0 z-30 ${
+      className={`sticky top-0 h-screen bg-[var(--bg-surface)] border-r border-[var(--border)] transition-all duration-200 flex flex-col shrink-0 z-30 ${
         open ? 'w-64' : 'w-20'
       }`}
     >
@@ -133,12 +133,12 @@ export function Sidebar({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function SidebarHeader({ children }: { children: React.ReactNode }) {
-  return <div className="p-4 border-b border-[var(--border)]">{children}</div>;
+export function SidebarHeader({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return <div className={`border-b border-[var(--border)] ${className}`}>{children}</div>;
 }
 
-export function SidebarContent({ children }: { children: React.ReactNode }) {
-  return <div className="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-thin">{children}</div>;
+export function SidebarContent({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return <div className={`flex-1 overflow-y-auto p-3 space-y-4 scrollbar-thin ${className}`}>{children}</div>;
 }
 
 export function SidebarGroup({ children }: { children: React.ReactNode }) {
@@ -204,6 +204,6 @@ export function SidebarMenuBadge({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function SidebarFooter({ children }: { children: React.ReactNode }) {
-  return <div className="p-4 border-t border-[var(--border)] mt-auto">{children}</div>;
+export function SidebarFooter({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return <div className={`border-t border-[var(--border)] mt-auto ${className}`}>{children}</div>;
 }
