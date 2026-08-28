@@ -86,8 +86,8 @@ export function AppSidebar({ channelsCount, activeDownloadsCount }: AppSidebarPr
           }`}
           title={open ? 'Collapse sidebar (Ctrl+B)' : 'Expand sidebar (Ctrl+B)'}
         >
-          <div className="h-8 w-8 rounded-[var(--radius-sm)] bg-[var(--primary)] text-[var(--primary-foreground)] flex items-center justify-center font-medium text-xs shrink-0 shadow-xs">
-            <Video className="h-4.5 w-4.5 fill-current" />
+          <div className="h-9 w-9 rounded-[var(--radius-sm)] bg-[var(--primary)] text-[var(--primary-foreground)] flex items-center justify-center font-medium text-xs shrink-0 shadow-xs">
+            <Video className="h-5 w-5 fill-current" />
           </div>
           {!isCompact && (
             <span className="font-semibold text-base tracking-tight text-[var(--text-primary)] truncate">

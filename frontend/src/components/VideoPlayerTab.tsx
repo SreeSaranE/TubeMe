@@ -10,29 +10,36 @@ import {
   HardDrive,
   Calendar,
   FileCode,
-  Folder,
 } from 'lucide-react';
 import { MediaVideoItem } from '@/types';
 import { api } from '@/services/api';
 import { formatDate } from '@/lib/utils';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-  DialogClose,
-} from '@/components/ui/dialog';
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from '@/components/ui/popover';
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from '@/components/ui/alert-dialog';
+import { useToast } from '@/hooks/use-toast';
 
 export function VideoPlayerTab() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const [videos, setVideos] = useState<MediaVideoItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
+  const [showDetailsPopover, setShowDetailsPopover] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -72,13 +79,22 @@ export function VideoPlayerTab() {
 
   const handleDeleteVideo = async () => {
     if (!currentVideo) return;
+    const deletedTitle = currentVideo.title;
     setIsDeleting(true);
     try {
-      await api.deleteMediaVideo(currentVideo.relativePath);
+      const res = await api.deleteMediaVideo(currentVideo.relativePath);
+      if (!res.ok) {
+        throw new Error('Server returned ' + res.status);
+      }
       const updated = videos.filter((v) => v.relativePath !== currentVideo.relativePath);
       setVideos(updated);
       setShowDeleteConfirm(false);
-      setShowDetailsDialog(false);
+      setShowDetailsPopover(false);
+      toast({
+        variant: 'success',
+        title: 'Video deleted',
+        description: `"${deletedTitle}" has been deleted successfully.`,
+      });
       if (updated.length > 0) {
         setSearchParams({ path: updated[0].relativePath });
       } else {
@@ -86,6 +102,11 @@ export function VideoPlayerTab() {
       }
     } catch (err) {
       console.error('Failed to delete video:', err);
+      toast({
+        variant: 'destructive',
+        title: 'Deletion failed',
+        description: 'Failed to delete the video file from storage.',
+      });
     } finally {
       setIsDeleting(false);
     }
@@ -93,10 +114,10 @@ export function VideoPlayerTab() {
 
   if (isLoading && !currentVideo) {
     return (
-      <div className="flex items-center justify-center py-24">
+      <div className="flex items-center justify-center h-full py-24">
         <div className="flex flex-col items-center gap-3">
           <div className="w-10 h-10 border-3 border-[var(--border)] border-t-[var(--primary)] rounded-full animate-spin" />
-          <span className="text-sm font-semibold text-[var(--text-muted)]">Loading Video Player...</span>
+          <span className="text-sm font-medium text-[var(--text-muted)]">Loading Video Player...</span>
         </div>
       </div>
     );
@@ -104,7 +125,7 @@ export function VideoPlayerTab() {
 
   if (!currentVideo) {
     return (
-      <div className="placeholder-view py-20">
+      <div className="placeholder-view h-full flex items-center justify-center py-12">
         <div className="placeholder-box">
           <div className="placeholder-icon">
             <Film className="h-8 w-8" />
@@ -114,7 +135,7 @@ export function VideoPlayerTab() {
           <button
             type="button"
             onClick={() => navigate('/')}
-            className="btn btn-primary h-10 px-5 text-sm font-bold mt-4"
+            className="btn btn-primary h-10 px-5 text-sm font-medium mt-4"
           >
             Back to Home
           </button>
@@ -124,25 +145,35 @@ export function VideoPlayerTab() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto space-y-4">
-      {/* Top Simple Navigation */}
-      <div className="flex items-center justify-between">
-        <button
-          type="button"
-          onClick={() => navigate('/')}
-          className="btn btn-secondary text-xs sm:text-sm h-9 px-3.5 font-semibold flex items-center gap-1.5"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          <span>Back to Home</span>
-        </button>
+    <div className="w-full h-full flex flex-col min-h-0 overflow-hidden">
+      {/* 1. Header Row: Left "Back to Home" & Right "Up Next", perfectly aligned in the same row with top padding */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center shrink-0 pt-3 pb-3">
+        {/* Left Header: Back to Home Button */}
+        <div className="lg:col-span-8 flex items-center">
+          <button
+            type="button"
+            onClick={() => navigate('/')}
+            className="btn btn-secondary text-xs sm:text-sm h-9 px-3.5 font-medium flex items-center gap-1.5 cursor-pointer"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <span>Back to Home</span>
+          </button>
+        </div>
+
+        {/* Right Header: Up Next Title (aligned in the same horizontal row) */}
+        <div className="lg:col-span-4 flex items-center justify-between pb-1.5 border-b border-[var(--border)]">
+          <h3 className="font-semibold text-sm sm:text-base text-[var(--text-primary)]">
+            Up Next ({upNextVideos.length})
+          </h3>
+        </div>
       </div>
 
-      {/* Main Layout: Left Main Video Column + Fixed/Sticky Right Suggested Column */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      {/* 2. Main Content Grid: Cinema Left Column (Fixed in View) + Right Column (Independently Scrollable) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 min-h-0 items-start overflow-hidden">
         {/* Left Column: Main Video Player, Title, and Channel Row */}
-        <div className="lg:col-span-8 space-y-4">
-          {/* Video Container (16:9 Cinema Aspect Ratio) */}
-          <div className="relative aspect-video w-full rounded-[var(--radius-md)] overflow-hidden bg-black shadow-lg border border-[var(--border)]">
+        <div className="lg:col-span-8 flex flex-col min-h-0 space-y-3">
+          {/* Video Container (16:9 Cinema Aspect Ratio constrained to viewport) */}
+          <div className="relative aspect-video max-h-[calc(100vh-18rem)] w-full rounded-[var(--radius-md)] overflow-hidden bg-black shadow-lg border border-[var(--border)] shrink-0 flex items-center justify-center">
             <video
               key={currentVideo.streamUrl}
               ref={videoRef}
@@ -167,15 +198,18 @@ export function VideoPlayerTab() {
           </div>
 
           {/* Video Title */}
-          <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-[var(--text-primary)] leading-tight">
+          <h1
+            className="text-base sm:text-xl font-semibold tracking-tight text-[var(--text-primary)] leading-snug line-clamp-2 shrink-0"
+            title={currentVideo.title}
+          >
             {currentVideo.title}
           </h1>
 
-          {/* Channel Row: Logo, Name & "Details" button */}
-          <div className="flex items-center justify-between gap-4 pb-3 border-b border-[var(--border)]">
-            {/* Channel Info (Only Logo + Name) */}
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full overflow-hidden bg-[var(--bg-subtle)] border border-[var(--border)] shrink-0 flex items-center justify-center">
+          {/* Channel Row: Logo, Name & "Details" Popover */}
+          <div className="flex items-center justify-between gap-4 pb-2.5 border-b border-[var(--border)] shrink-0">
+            {/* Channel Info with enlarged logo */}
+            <div className="flex items-center gap-3.5 min-w-0">
+              <div className="w-12 h-12 rounded-full overflow-hidden bg-[var(--bg-subtle)] border border-[var(--border)] shrink-0 flex items-center justify-center shadow-xs">
                 {currentVideo.channelAvatarUrl ? (
                   <img
                     src={currentVideo.channelAvatarUrl}
@@ -183,42 +217,97 @@ export function VideoPlayerTab() {
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <Tv className="h-5 w-5 text-[var(--text-muted)]" />
+                  <Tv className="h-6 w-6 text-[var(--text-muted)]" />
                 )}
               </div>
 
-              <h3 className="font-semibold text-base text-[var(--text-primary)]">
+              <h3 className="font-semibold text-base text-[var(--text-primary)] truncate">
                 {currentVideo.channelName}
               </h3>
             </div>
 
-            {/* Details Button -> Opens Shadcn Dialog */}
-            <button
-              type="button"
-              onClick={() => setShowDetailsDialog(true)}
-              className="btn btn-secondary text-xs sm:text-sm h-9 px-4 font-medium flex items-center gap-1.5 transition-colors"
-              title="View video details"
-            >
-              <Info className="h-4 w-4" />
-              <span>Details</span>
-            </button>
+            {/* Details Popover -> Anchored right to Details button */}
+            <Popover open={showDetailsPopover} onOpenChange={setShowDetailsPopover}>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="btn btn-secondary text-xs sm:text-sm h-9 px-4 font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                  title="View video details"
+                >
+                  <Info className="h-4 w-4" />
+                  <span>Details</span>
+                </button>
+              </PopoverTrigger>
+
+              <PopoverContent align="end" sideOffset={8} className="w-80 p-4 space-y-3 shadow-xl border border-[var(--border)] bg-[var(--bg-surface)]">
+                <div className="flex items-center gap-2 border-b border-[var(--border)] pb-2.5">
+                  <Info className="h-4 w-4 text-[var(--text-primary)]" />
+                  <h4 className="font-semibold text-sm text-[var(--text-primary)]">Video Details</h4>
+                </div>
+
+                <div className="space-y-2 text-xs">
+                  {/* Space / File Size */}
+                  <div className="flex items-center justify-between p-2.5 rounded-[var(--radius-sm)] bg-[var(--bg-subtle)] border border-[var(--border)]">
+                    <div className="flex items-center gap-2 text-[var(--text-secondary)]">
+                      <HardDrive className="h-4 w-4 text-[var(--text-primary)]" />
+                      <span className="font-medium">Space</span>
+                    </div>
+                    <span className="font-mono font-medium text-[var(--text-primary)]">
+                      {formatBytes(currentVideo.size)}
+                    </span>
+                  </div>
+
+                  {/* Downloaded Date */}
+                  <div className="flex items-center justify-between p-2.5 rounded-[var(--radius-sm)] bg-[var(--bg-subtle)] border border-[var(--border)]">
+                    <div className="flex items-center gap-2 text-[var(--text-secondary)]">
+                      <Calendar className="h-4 w-4 text-[var(--text-primary)]" />
+                      <span className="font-medium">Downloaded Date</span>
+                    </div>
+                    <span className="font-mono font-medium text-[var(--text-primary)]">
+                      {formatDate(currentVideo.lastModified)}
+                    </span>
+                  </div>
+
+                  {/* Format */}
+                  <div className="flex items-center justify-between p-2.5 rounded-[var(--radius-sm)] bg-[var(--bg-subtle)] border border-[var(--border)]">
+                    <div className="flex items-center gap-2 text-[var(--text-secondary)]">
+                      <FileCode className="h-4 w-4 text-[var(--text-primary)]" />
+                      <span className="font-medium">Format</span>
+                    </div>
+                    <span className="type-pill font-mono font-medium text-[11px] py-0.5 px-2">
+                      {currentVideo.format}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Delete Action Button inside Popover */}
+                <div className="pt-2 border-t border-[var(--border)]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowDetailsPopover(false);
+                      setShowDeleteConfirm(true);
+                    }}
+                    className="w-full btn text-xs h-9 px-3 font-medium bg-rose-600 text-white hover:bg-rose-700 flex items-center justify-center gap-1.5 shadow-xs"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    <span>Delete Video</span>
+                  </button>
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
 
-        {/* Right Column: Fixed/Sticky Suggested Videos Sidebar */}
-        <div className="lg:col-span-4 space-y-3 lg:sticky lg:top-18 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto pr-1 scrollbar-thin">
-          <div className="pb-1 border-b border-[var(--border)]">
-            <h3 className="font-semibold text-sm sm:text-base text-[var(--text-primary)]">
-              Up Next ({upNextVideos.length})
-            </h3>
-          </div>
+        {/* Right Column: Suggested Videos Sidebar with its own dedicated scroll */}
+        <div className="lg:col-span-4 flex flex-col h-full min-h-0 overflow-hidden">
 
           {upNextVideos.length === 0 ? (
             <div className="card p-6 text-center text-xs text-[var(--text-muted)]">
               No other downloaded videos available.
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="flex-1 overflow-y-auto pr-1.5 space-y-2.5 scrollbar-thin">
               {upNextVideos.map((item) => (
                 <div
                   key={item.id}
@@ -264,112 +353,36 @@ export function VideoPlayerTab() {
         </div>
       </div>
 
-      {/* Details Dialog (Using Shadcn Dialog: Space, Downloaded Date, Format, Storage Path, Delete) */}
-      <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Info className="h-5 w-5 text-[var(--text-primary)]" />
-              Video Details
-            </DialogTitle>
-            <DialogDescription>
-              Technical file specifications and storage details.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-3 py-1 text-xs sm:text-sm">
-            {/* Space / File Size */}
-            <div className="flex items-center justify-between p-3 rounded-[var(--radius-md)] bg-[var(--bg-subtle)] border border-[var(--border)]">
-              <div className="flex items-center gap-2.5 text-[var(--text-secondary)]">
-                <HardDrive className="h-4.5 w-4.5 text-[var(--text-primary)]" />
-                <span className="font-medium">Space</span>
-              </div>
-              <span className="font-mono font-medium text-[var(--text-primary)]">
-                {formatBytes(currentVideo.size)}
-              </span>
-            </div>
-
-            {/* Downloaded Date */}
-            <div className="flex items-center justify-between p-3 rounded-[var(--radius-md)] bg-[var(--bg-subtle)] border border-[var(--border)]">
-              <div className="flex items-center gap-2.5 text-[var(--text-secondary)]">
-                <Calendar className="h-4.5 w-4.5 text-[var(--text-primary)]" />
-                <span className="font-medium">Downloaded Date</span>
-              </div>
-              <span className="font-mono font-medium text-[var(--text-primary)]">
-                {formatDate(currentVideo.lastModified)}
-              </span>
-            </div>
-
-            {/* Format */}
-            <div className="flex items-center justify-between p-3 rounded-[var(--radius-md)] bg-[var(--bg-subtle)] border border-[var(--border)]">
-              <div className="flex items-center gap-2.5 text-[var(--text-secondary)]">
-                <FileCode className="h-4.5 w-4.5 text-[var(--text-primary)]" />
-                <span className="font-medium">Format</span>
-              </div>
-              <span className="type-pill font-mono font-medium text-xs">
-                {currentVideo.format}
-              </span>
-            </div>
-          </div>
-
-          <DialogFooter className="flex items-center justify-between sm:justify-between w-full">
-            <button
-              type="button"
-              onClick={() => {
-                setShowDetailsDialog(false);
-                setShowDeleteConfirm(true);
-              }}
-              className="btn text-xs h-9 px-3.5 font-medium bg-rose-600 text-white hover:bg-rose-700 flex items-center gap-1.5 shadow-xs"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              <span>Delete Video</span>
-            </button>
-
-            <DialogClose asChild>
-              <button
-                type="button"
-                className="btn btn-secondary text-xs h-9 px-4 font-medium"
-              >
-                Close
-              </button>
-            </DialogClose>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Confirmation Dialog (Shadcn Dialog) */}
-      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-rose-600">
+      {/* Delete Confirmation Alert Dialog (Shadcn Alert Dialog) */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-rose-600">
               <AlertTriangle className="h-5 w-5 shrink-0" />
               Delete Video File?
-            </DialogTitle>
-            <DialogDescription>
+            </AlertDialogTitle>
+            <AlertDialogDescription>
               Are you sure you want to delete <strong>"{currentVideo.title}"</strong>? This will permanently remove the media file from your storage disk.
-            </DialogDescription>
-          </DialogHeader>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
 
-          <DialogFooter className="flex items-center justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => setShowDeleteConfirm(false)}
-              disabled={isDeleting}
-              className="btn btn-secondary text-xs h-9 px-4 font-semibold"
-            >
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>
               Cancel
-            </button>
-            <button
-              type="button"
-              onClick={handleDeleteVideo}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleDeleteVideo();
+              }}
               disabled={isDeleting}
-              className="btn text-xs h-9 px-4 font-bold bg-rose-600 text-white hover:bg-rose-700"
+              className="bg-rose-600 text-white hover:bg-rose-700 font-medium"
             >
               {isDeleting ? 'Deleting...' : 'Delete Permanently'}
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

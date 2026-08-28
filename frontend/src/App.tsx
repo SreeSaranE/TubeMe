@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, useNavigate, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
+import { Toaster } from '@/components/ui/toaster';
 import { AppSidebar } from '@/components/AppSidebar';
 import { ChannelsTab } from '@/components/ChannelsTab';
 import { SearchTab } from '@/components/SearchTab';
@@ -20,6 +21,8 @@ import {
 
 function AppContent() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const isWatchPage = location.pathname === '/watch';
   const [channels, setChannels] = useState<ChannelModel[]>([]);
   const [downloads, setDownloads] = useState<DownloadItem[]>([]);
   const [settings, setSettings] = useState<AppSettingsModel | null>(null);
@@ -134,14 +137,20 @@ function AppContent() {
   ).length;
 
   return (
-    <div className="min-h-screen bg-(--bg-app) text-(--text-primary) flex w-full font-sans antialiased">
+    <div className="h-screen bg-[var(--bg-app)] text-[var(--text-primary)] flex w-full font-sans antialiased overflow-hidden">
       <AppSidebar
         channelsCount={channels.length}
         activeDownloadsCount={activeDownloadsCount}
       />
 
-      <main className="flex-1 min-w-0 px-4 sm:px-8 lg:px-12 py-6 sm:py-10 max-w-7xl mx-auto w-full">
-        <div className="md:hidden mb-4">
+      <main
+        className={`flex-1 min-w-0 w-full ${
+          isWatchPage
+            ? 'h-screen overflow-y-auto lg:overflow-hidden flex flex-col px-4 pt-6 pb-4 sm:px-6 sm:pt-8 sm:pb-6 lg:px-8 lg:pt-8 lg:pb-6 max-w-[1600px] mx-auto'
+            : 'h-screen overflow-y-auto px-4 sm:px-8 lg:px-12 py-6 sm:py-10 max-w-7xl mx-auto'
+        }`}
+      >
+        <div className="md:hidden mb-3 shrink-0">
           <SidebarTrigger />
         </div>
         <Routes>
@@ -210,6 +219,7 @@ export function App() {
       <BrowserRouter>
         <SidebarProvider defaultOpen={true}>
           <AppContent />
+          <Toaster />
         </SidebarProvider>
       </BrowserRouter>
     </ThemeProvider>
