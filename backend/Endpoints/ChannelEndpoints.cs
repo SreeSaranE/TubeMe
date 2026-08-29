@@ -55,14 +55,30 @@ namespace YoutubeDownloader.Endpoints
                 return Results.Ok(channelService.GetChannels());
             });
 
-            group.MapGet("/avatar/{filename}", (string filename, ISettingsService settingsService) =>
+            group.MapGet("/avatar/{*filename}", (string filename, HttpContext httpContext, ISettingsService settingsService) =>
             {
                 var settings = settingsService.GetSettings();
-                string avatarPath = Path.Combine(settings.DataDir, "ChannelPhotos", filename);
+                string decoded = Uri.UnescapeDataString(filename);
+                string avatarPath = Path.Combine(settings.DataDir, "ChannelPhotos", decoded);
                 if (!File.Exists(avatarPath))
                 {
-                    return Results.NotFound();
+                    string localPath = Path.Combine(Directory.GetCurrentDirectory(), "data", "ChannelPhotos", decoded);
+                    if (File.Exists(localPath))
+                    {
+                        avatarPath = localPath;
+                    }
+                    else
+                    {
+                        return Results.NotFound();
+                    }
                 }
+
+                httpContext.Response.GetTypedHeaders().CacheControl = new Microsoft.Net.Http.Headers.CacheControlHeaderValue
+                {
+                    Public = true,
+                    MaxAge = TimeSpan.FromDays(7)
+                };
+
                 return Results.File(avatarPath, "image/jpeg");
             });
 

@@ -15,11 +15,23 @@ import {
   Edit2,
   Check,
   X,
+  AlertTriangle,
 } from 'lucide-react';
 import { ChannelModel, ChannelSyncRequest, AppSettingsModel, CategoryDetailModel } from '@/types';
 import { formatDate } from '@/lib/utils';
 import { api } from '@/services/api';
 import { ManageCategoriesModal } from '@/components/ManageCategoriesModal';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { toast } from '@/hooks/use-toast';
 
 interface ChannelsTabProps {
   channels: ChannelModel[];
@@ -61,6 +73,32 @@ export function ChannelsTab({
   const [syncDays, setSyncDays] = useState(settings?.daysLimit || 4);
   const [syncSubs, setSyncSubs] = useState(settings?.includeSubtitles ?? true);
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
+  const [channelToDelete, setChannelToDelete] = useState<ChannelModel | null>(null);
+  const [isDeletingChannel, setIsDeletingChannel] = useState(false);
+
+  const handleConfirmDelete = async () => {
+    if (!channelToDelete) return;
+    const targetChannel = channelToDelete;
+    setIsDeletingChannel(true);
+    try {
+      await onRemoveChannel(targetChannel.id);
+      setChannelToDelete(null);
+      toast({
+        variant: 'success',
+        title: 'Channel deleted',
+        description: `"${targetChannel.name}" has been deleted successfully.`,
+      });
+    } catch (err) {
+      console.error('Failed to delete channel:', err);
+      toast({
+        variant: 'destructive',
+        title: 'Deletion failed',
+        description: `Failed to delete "${targetChannel.name}". Please try again.`,
+      });
+    } finally {
+      setIsDeletingChannel(false);
+    }
+  };
 
   const loadCategories = async () => {
     try {
@@ -530,9 +568,9 @@ export function ChannelsTab({
                     </button>
                     <button
                       type="button"
-                      onClick={() => onRemoveChannel(ch.id)}
-                      className="btn-icon h-9 w-9 flex items-center justify-center hover:text-[var(--danger)]"
-                      title="Remove channel"
+                      onClick={() => setChannelToDelete(ch)}
+                      className="btn-icon h-9 w-9 flex items-center justify-center hover:text-[var(--danger)] cursor-pointer"
+                      title="Delete channel"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -812,6 +850,45 @@ export function ChannelsTab({
         onClose={() => setShowManageCategoriesModal(false)}
         onCategoriesChanged={handleCategoriesChanged}
       />
+
+      {/* 8. Delete Confirmation Alert Dialog (Shadcn Alert Dialog) */}
+      <AlertDialog
+        open={!!channelToDelete}
+        onOpenChange={(open) => {
+          if (!open && !isDeletingChannel) {
+            setChannelToDelete(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-rose-600">
+              <AlertTriangle className="h-5 w-5 shrink-0" />
+              Delete Channel?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete <strong>"{channelToDelete?.name || 'this channel'}"</strong>? 
+              This will remove the channel from your tracked subscriptions.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeletingChannel}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleConfirmDelete();
+              }}
+              disabled={isDeletingChannel}
+              className="bg-rose-600 text-white hover:bg-rose-700 font-medium cursor-pointer"
+            >
+              {isDeletingChannel ? 'Deleting...' : 'Delete Channel'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

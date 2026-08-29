@@ -264,8 +264,18 @@ namespace YoutubeDownloader.Services
                     {
                         try
                         {
-                            byte[] data = await _httpClient.GetByteArrayAsync(avatarUrl);
+                            // Request lightweight 176px thumbnail from Google CDN directly if possible
+                            string downloadUrl = avatarUrl;
+                            if (downloadUrl.Contains("googleusercontent.com") && Regex.IsMatch(downloadUrl, @"=s\d+"))
+                            {
+                                downloadUrl = Regex.Replace(downloadUrl, @"=s\d+.*", "=s176-c");
+                            }
+
+                            byte[] data = await _httpClient.GetByteArrayAsync(downloadUrl);
                             await File.WriteAllBytesAsync(filePath, data);
+
+                            // Ensure file size is compact (<40KB) by resizing with ffmpeg if needed
+                            OptimizeAvatarImage(filePath);
                         }
                         catch { }
                     }
@@ -283,6 +293,38 @@ namespace YoutubeDownloader.Services
             {
                 return null;
             }
+        }
+
+        public static void OptimizeAvatarImage(string filePath)
+        {
+            try
+            {
+                if (!File.Exists(filePath)) return;
+                var fi = new FileInfo(filePath);
+                if (fi.Length <= 40 * 1024) return;
+
+                string tmpPath = filePath + ".tmp.jpg";
+                var psi = new ProcessStartInfo
+                {
+                    FileName = "ffmpeg",
+                    Arguments = $"-y -i \"{filePath}\" -vf \"scale=176:176:force_original_aspect_ratio=increase,crop=176:176\" -q:v 3 \"{tmpPath}\"",
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                };
+
+                using var p = Process.Start(psi);
+                if (p != null)
+                {
+                    p.WaitForExit(4000);
+                    if (File.Exists(tmpPath) && new FileInfo(tmpPath).Length > 0)
+                    {
+                        File.Move(tmpPath, filePath, true);
+                    }
+                }
+            }
+            catch { }
         }
 
         public async Task ExecuteDownloadAsync(
