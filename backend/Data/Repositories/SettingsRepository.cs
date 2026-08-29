@@ -21,7 +21,7 @@ namespace YoutubeDownloader.Data.Repositories
             {
                 using var conn = _connectionFactory.CreateConnection();
                 using var cmd = conn.CreateCommand();
-                cmd.CommandText = "SELECT output_dir, data_dir, archive_file, channels_file, default_resolution, include_subtitles, subtitle_langs, days_limit, max_concurrent_jobs, concurrent_fragments FROM settings WHERE id = 1 LIMIT 1;";
+                cmd.CommandText = "SELECT output_dir, data_dir, archive_file, channels_file, cookies_file, default_resolution, include_subtitles, subtitle_langs, days_limit, max_concurrent_jobs, concurrent_fragments FROM settings WHERE id = 1 LIMIT 1;";
 
                 using var reader = cmd.ExecuteReader();
                 if (reader.Read())
@@ -32,12 +32,13 @@ namespace YoutubeDownloader.Data.Repositories
                         DataDir = reader.GetString(1),
                         ArchiveFile = reader.GetString(2),
                         ChannelsFile = reader.GetString(3),
-                        DefaultResolution = reader.GetString(4),
-                        IncludeSubtitles = reader.GetInt32(5) == 1,
-                        SubtitleLangs = reader.GetString(6),
-                        DaysLimit = reader.GetInt32(7),
-                        MaxConcurrentJobs = reader.GetInt32(8),
-                        ConcurrentFragments = reader.GetInt32(9),
+                        CookiesFile = reader.IsDBNull(4) ? "/app/data/cookies.txt" : reader.GetString(4),
+                        DefaultResolution = reader.GetString(5),
+                        IncludeSubtitles = reader.GetInt32(6) == 1,
+                        SubtitleLangs = reader.GetString(7),
+                        DaysLimit = reader.GetInt32(8),
+                        MaxConcurrentJobs = reader.GetInt32(9),
+                        ConcurrentFragments = reader.GetInt32(10),
                     };
                 }
 
@@ -52,13 +53,14 @@ namespace YoutubeDownloader.Data.Repositories
                 using var conn = _connectionFactory.CreateConnection();
                 using var cmd = conn.CreateCommand();
                 cmd.CommandText = @"
-                    INSERT INTO settings (id, output_dir, data_dir, archive_file, channels_file, default_resolution, include_subtitles, subtitle_langs, days_limit, max_concurrent_jobs, concurrent_fragments)
-                    VALUES (1, @outputDir, @dataDir, @archiveFile, @channelsFile, @defaultResolution, @includeSubtitles, @subtitleLangs, @daysLimit, @maxConcurrentJobs, @concurrentFragments)
+                    INSERT INTO settings (id, output_dir, data_dir, archive_file, channels_file, cookies_file, default_resolution, include_subtitles, subtitle_langs, days_limit, max_concurrent_jobs, concurrent_fragments)
+                    VALUES (1, @outputDir, @dataDir, @archiveFile, @channelsFile, @cookiesFile, @defaultResolution, @includeSubtitles, @subtitleLangs, @daysLimit, @maxConcurrentJobs, @concurrentFragments)
                     ON CONFLICT(id) DO UPDATE SET
                         output_dir = excluded.output_dir,
                         data_dir = excluded.data_dir,
                         archive_file = excluded.archive_file,
                         channels_file = excluded.channels_file,
+                        cookies_file = excluded.cookies_file,
                         default_resolution = excluded.default_resolution,
                         include_subtitles = excluded.include_subtitles,
                         subtitle_langs = excluded.subtitle_langs,
@@ -70,6 +72,7 @@ namespace YoutubeDownloader.Data.Repositories
                 cmd.Parameters.AddWithValue("@dataDir", settings.DataDir);
                 cmd.Parameters.AddWithValue("@archiveFile", settings.ArchiveFile);
                 cmd.Parameters.AddWithValue("@channelsFile", settings.ChannelsFile);
+                cmd.Parameters.AddWithValue("@cookiesFile", settings.CookiesFile);
                 cmd.Parameters.AddWithValue("@defaultResolution", settings.DefaultResolution);
                 cmd.Parameters.AddWithValue("@includeSubtitles", settings.IncludeSubtitles ? 1 : 0);
                 cmd.Parameters.AddWithValue("@subtitleLangs", settings.SubtitleLangs);

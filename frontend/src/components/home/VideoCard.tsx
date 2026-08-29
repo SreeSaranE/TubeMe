@@ -56,9 +56,9 @@ export function VideoCard({ video, onClick }: VideoCardProps) {
       </div>
 
       {/* Video Info: Avatar & Title Block */}
-      <div className="flex items-start gap-3">
-        {/* Channel Avatar */}
-        <div className="w-9 h-9 rounded-full overflow-hidden bg-[var(--bg-subtle)] border border-[var(--border)] shrink-0 flex items-center justify-center mt-0.5">
+      <div className="flex items-start gap-3.5">
+        {/* Channel Avatar Logo */}
+        <div className="w-11 h-11 rounded-full overflow-hidden bg-[var(--bg-subtle)] border border-[var(--border)] shrink-0 flex items-center justify-center mt-0.5 shadow-xs">
           {video.channelAvatarUrl ? (
             <img
               src={video.channelAvatarUrl}
@@ -69,20 +69,20 @@ export function VideoCard({ video, onClick }: VideoCardProps) {
               }}
             />
           ) : (
-            <Tv className="h-4 w-4 text-[var(--text-muted)]" />
+            <Tv className="h-5 w-5 text-[var(--text-muted)]" />
           )}
         </div>
 
         {/* Title & Metadata */}
         <div className="min-w-0 flex-1 space-y-1">
           <h3
-            className="font-medium text-sm sm:text-[15px] leading-snug text-[var(--text-primary)] line-clamp-2 group-hover:text-[var(--text-primary)]"
+            className="font-semibold text-[15px] sm:text-base leading-snug text-[var(--text-primary)] line-clamp-2 group-hover:text-[var(--text-primary)] transition-colors"
             title={video.title}
           >
             {video.title}
           </h3>
 
-          <div className="text-xs text-[var(--text-secondary)] font-medium truncate">
+          <div className="text-[13px] text-[var(--text-secondary)] font-medium truncate">
             {video.channelName}
           </div>
 

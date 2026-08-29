@@ -1,17 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Search,
   Download,
   Film,
-  Music,
-  Clock,
-  ExternalLink,
-  SlidersHorizontal,
   X,
-  Play,
   FileVideo,
+  Captions,
+  Calendar,
 } from 'lucide-react';
 import { SearchResultItem, StartDownloadRequest, AppSettingsModel } from '@/types';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Toggle } from '@/components/ui/toggle';
 
 interface SearchTabProps {
   onStartDownload: (req: StartDownloadRequest) => Promise<void>;
@@ -23,28 +28,23 @@ export function SearchTab({ onStartDownload, settings }: SearchTabProps) {
   const [results, setResults] = useState<SearchResultItem[]>([]);
   const [isSearching, setIsSearching] = useState(false);
 
-  // Selected item for custom download modal
-  const [selectedItem, setSelectedItem] = useState<SearchResultItem | null>(null);
-  const [res, setRes] = useState(settings?.defaultResolution || '1080');
-  const [subtitles, setSubtitles] = useState(settings?.includeSubtitles ?? true);
-  const [audioOnly, setAudioOnly] = useState(false);
+  // Quality preset and subtitle states under the search input
+  const [quality, setQuality] = useState<string>(settings?.defaultResolution || '1080');
+  const [subtitles, setSubtitles] = useState<boolean>(settings?.includeSubtitles ?? true);
 
-  const isDirectUrl =
-    query.trim().startsWith('http://') ||
-    query.trim().startsWith('https://') ||
-    query.trim().includes('youtube.com') ||
-    query.trim().includes('youtu.be');
+  useEffect(() => {
+    if (settings?.defaultResolution) {
+      setQuality(settings.defaultResolution);
+    }
+    if (settings?.includeSubtitles !== undefined) {
+      setSubtitles(settings.includeSubtitles);
+    }
+  }, [settings]);
 
   const handleSearch = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const cleanQuery = query.trim();
     if (!cleanQuery) return;
-
-    // If it's a direct URL, prompt instant download
-    if (isDirectUrl) {
-      handleDirectUrlDownload();
-      return;
-    }
 
     setIsSearching(true);
     try {
@@ -59,67 +59,46 @@ export function SearchTab({ onStartDownload, settings }: SearchTabProps) {
     }
   };
 
-  const handleDirectUrlDownload = () => {
-    if (!query.trim()) return;
-    onStartDownload({
-      url: query.trim(),
-      resolution: audioOnly ? 'audio' : res,
-      subtitles: subtitles,
-      audioOnly: audioOnly,
-    });
-    setQuery('');
-  };
-
-  const handleQuickDownload = (item: SearchResultItem) => {
+  const handleDownload = (item: SearchResultItem) => {
+    const isAudio = quality === 'audio';
     onStartDownload({
       url: item.url,
-      resolution: res,
-      subtitles: subtitles,
-      audioOnly: false,
+      resolution: isAudio ? 'audio' : quality,
+      subtitles: isAudio ? false : subtitles,
+      audioOnly: isAudio,
     });
-  };
-
-  const handleCustomDownloadSubmit = () => {
-    if (!selectedItem) return;
-    onStartDownload({
-      url: selectedItem.url,
-      resolution: audioOnly ? 'audio' : res,
-      subtitles: subtitles,
-      audioOnly: audioOnly,
-    });
-    setSelectedItem(null);
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-7">
       {/* 1. Clean Title */}
-      <div className="border-b border-[var(--border)] pb-6">
-        <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-[var(--text-primary)]">
+      <div className="border-b border-[var(--border)] pb-5">
+        <h1 className="text-2xl sm:text-[32px] font-semibold tracking-tight text-[var(--text-primary)]">
           Search
         </h1>
       </div>
 
-      {/* 2. Spacious Search & Download Card */}
-      <div className="card p-6 sm:p-8 space-y-6">
-        {/* Large Input & Action Button */}
-        <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-3.5">
-          <div className="relative flex-1">
-            <Search className="h-5 w-5 text-[var(--text-muted)] absolute left-5 top-4 sm:top-5" />
+      {/* 2. Compact Search Card */}
+      <div className="card p-4 sm:p-5 space-y-3.5">
+        {/* Search Input Bar & Button */}
+        <form onSubmit={handleSearch} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          <div className="relative flex-1 w-full">
+            <Search className="h-4.5 w-4.5 text-[var(--text-muted)] absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Paste YouTube link or enter search keywords..."
-              className="w-full pl-14 pr-12 h-14 sm:h-16 text-base sm:text-lg bg-[var(--bg-subtle)] border border-[var(--border)] rounded-[var(--radius-md)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--primary)] font-mono"
+              className="w-full pl-10 pr-10 h-11 sm:h-12 text-sm sm:text-base bg-[var(--bg-subtle)] border border-[var(--border)] rounded-[var(--radius-md)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--primary)] font-mono"
               autoFocus
             />
             {query && (
               <button
                 type="button"
                 onClick={() => setQuery('')}
-                className="absolute right-4 top-4 sm:top-5 text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)] p-0.5 cursor-pointer"
               >
-                <X className="h-5 w-5" />
+                <X className="h-4 w-4" />
               </button>
             )}
           </div>
@@ -127,65 +106,55 @@ export function SearchTab({ onStartDownload, settings }: SearchTabProps) {
           <button
             type="submit"
             disabled={!query.trim() || isSearching}
-            className="btn btn-primary h-14 sm:h-16 px-8 text-base font-medium shrink-0 shadow-sm"
+            className="h-11 sm:h-12 px-6 py-0 text-sm font-medium bg-[var(--primary)] text-[var(--primary-foreground)] hover:bg-[var(--primary-hover)] border border-transparent rounded-[var(--radius-md)] shrink-0 shadow-xs cursor-pointer flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSearching ? (
               <span>Searching...</span>
-            ) : isDirectUrl ? (
-              <>
-                <Download className="h-5 w-5 mr-2" />
-                <span>Download URL</span>
-              </>
             ) : (
               <>
-                <Search className="h-5 w-5 mr-2" />
+                <Search className="h-4 w-4" />
                 <span>Search</span>
               </>
             )}
           </button>
         </form>
 
-        {/* Options Row */}
-        <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t border-[var(--border)] text-sm text-[var(--text-secondary)]">
-          <div className="flex flex-wrap items-center gap-5">
-            {/* Resolution Selector */}
-            <div className="flex items-center gap-2.5">
-              <span className="font-bold text-[var(--text-primary)]">Quality:</span>
-              <div className="flex rounded-[var(--radius-sm)] overflow-hidden border border-[var(--border)]">
-                {['1080', '720', '4k', 'audio'].map((q) => (
-                  <button
-                    key={q}
-                    type="button"
-                    onClick={() => {
-                      if (q === 'audio') {
-                        setAudioOnly(true);
-                      } else {
-                        setAudioOnly(false);
-                        setRes(q);
-                      }
-                    }}
-                    className={`px-3.5 py-1.5 text-xs font-mono font-bold transition-colors ${
-                      (q === 'audio' && audioOnly) || (!audioOnly && res === q)
-                        ? 'bg-[var(--primary)] text-[var(--primary-foreground)]'
-                        : 'bg-[var(--bg-subtle)] text-[var(--text-secondary)] hover:bg-[var(--border)]'
-                    }`}
-                  >
-                    {q === 'audio' ? 'MP3' : `${q}p`}
-                  </button>
-                ))}
-              </div>
-            </div>
+        {/* Quick Options Under the Search Input Bar */}
+        <div className="flex flex-wrap items-center gap-4 pt-3 border-t border-[var(--border)]">
+          {/* Quality Preset (shadcn Select) */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-[var(--text-secondary)] select-none">
+              Quality:
+            </span>
+            <Select value={quality} onValueChange={setQuality}>
+              <SelectTrigger className="w-[145px] h-8 text-xs font-medium bg-[var(--bg-subtle)]">
+                <SelectValue placeholder="Select quality" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="2160">4K (2160p)</SelectItem>
+                <SelectItem value="1440">2K (1440p)</SelectItem>
+                <SelectItem value="1080">1080p (Full HD)</SelectItem>
+                <SelectItem value="720">720p (HD)</SelectItem>
+                <SelectItem value="480">480p</SelectItem>
+                <SelectItem value="360">360p</SelectItem>
+                <SelectItem value="audio">Audio Only (MP3)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-            {/* Subtitles Toggle */}
-            <label className="flex items-center gap-2 cursor-pointer select-none font-medium">
-              <input
-                type="checkbox"
-                checked={subtitles}
-                onChange={(e) => setSubtitles(e.target.checked)}
-                className="h-4.5 w-4.5 accent-[var(--primary)] rounded cursor-pointer"
-              />
-              <span>Embed Subtitles</span>
-            </label>
+          {/* Subtitle Option (shadcn Toggle) */}
+          <div className="flex items-center gap-2">
+            <Toggle
+              pressed={subtitles}
+              onPressedChange={setSubtitles}
+              variant="outline"
+              size="sm"
+              className="h-8 px-2.5 text-xs font-medium gap-1.5"
+              aria-label="Toggle subtitles"
+            >
+              <Captions className="h-3.5 w-3.5" />
+              <span>Subtitles</span>
+            </Toggle>
           </div>
         </div>
       </div>
@@ -203,9 +172,8 @@ export function SearchTab({ onStartDownload, settings }: SearchTabProps) {
         </div>
       ) : results.length > 0 ? (
         <div className="space-y-4">
-          <div className="flex items-center justify-between text-xs font-mono font-bold text-[var(--text-muted)] px-1">
+          <div className="flex items-center justify-between text-xs font-mono font-medium text-[var(--text-muted)] px-1">
             <span>RESULTS ({results.length})</span>
-            <span>1-CLICK DOWNLOAD READY</span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -222,7 +190,7 @@ export function SearchTab({ onStartDownload, settings }: SearchTabProps) {
                       </div>
                     )}
                     {item.duration && (
-                      <span className="absolute bottom-2 right-2 bg-black/80 text-white font-mono text-xs font-bold px-2 py-0.5 rounded">
+                      <span className="absolute bottom-2 right-2 bg-black/80 text-white font-mono text-xs font-medium px-2 py-0.5 rounded">
                         {item.duration}
                       </span>
                     )}
@@ -231,37 +199,34 @@ export function SearchTab({ onStartDownload, settings }: SearchTabProps) {
                   {/* Title & Channel */}
                   <div className="space-y-1">
                     <h3
-                      className="font-bold text-base text-[var(--text-primary)] line-clamp-2 leading-snug"
+                      className="font-semibold text-[15px] sm:text-base text-[var(--text-primary)] line-clamp-2 leading-snug"
                       title={item.title}
                     >
                       {item.title}
                     </h3>
-                    <div className="flex items-center justify-between text-xs text-[var(--text-muted)] pt-0.5">
-                      <span className="font-medium truncate">{item.channelName}</span>
-                      {item.uploadDate && <span className="font-mono">{item.uploadDate}</span>}
+                    <div className="text-xs text-[var(--text-muted)] pt-0.5 truncate font-medium">
+                      {item.channelName}
                     </div>
                   </div>
                 </div>
 
-                {/* Card Action Footer */}
-                <div className="border-t border-[var(--border)] pt-3.5 flex items-center justify-between">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedItem(item);
-                    }}
-                    className="text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] flex items-center gap-1 font-mono font-semibold"
-                  >
-                    <SlidersHorizontal className="h-3.5 w-3.5" />
-                    <span>Options</span>
-                  </button>
+                {/* Card Action Footer: Upload Date on Left, Download Button on Right */}
+                <div className="border-t border-[var(--border)] pt-3 flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    {item.uploadDate && !item.isPlaylist && (
+                      <span className="text-xs font-mono text-[var(--text-muted)] font-medium flex items-center gap-1.5 truncate">
+                        <Calendar className="h-3.5 w-3.5 shrink-0 text-[var(--text-muted)]" />
+                        <span>{item.uploadDate}</span>
+                      </span>
+                    )}
+                  </div>
 
                   <button
                     type="button"
-                    onClick={() => handleQuickDownload(item)}
-                    className="btn btn-primary h-9 px-4 text-xs font-bold rounded-[var(--radius-sm)]"
+                    onClick={() => handleDownload(item)}
+                    className="btn btn-primary h-9 px-4 text-xs font-medium rounded-[var(--radius-sm)] flex items-center gap-1.5 cursor-pointer shrink-0"
                   >
-                    <Download className="h-3.5 w-3.5 mr-1" />
+                    <Download className="h-3.5 w-3.5" />
                     <span>Download</span>
                   </button>
                 </div>
@@ -277,86 +242,8 @@ export function SearchTab({ onStartDownload, settings }: SearchTabProps) {
             </div>
             <h2>Ready to Download</h2>
             <p>
-              Paste any YouTube link above for instant retrieval, or enter keywords to browse search results.
+              Paste any YouTube link above or enter keywords to browse search results.
             </p>
-          </div>
-        </div>
-      )}
-
-      {/* 4. Custom Download Modal */}
-      {selectedItem && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="card max-w-md w-full p-7 space-y-5 shadow-xl">
-            <div className="flex items-start justify-between border-b border-[var(--border)] pb-3">
-              <div>
-                <h3 className="text-lg font-bold text-[var(--text-primary)]">
-                  Download Options
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedItem(null)}
-                className="btn-icon"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="space-y-4 text-sm">
-              <p className="font-semibold text-[var(--text-primary)] line-clamp-2">
-                {selectedItem.title}
-              </p>
-
-              <div className="space-y-1.5">
-                <label className="font-semibold text-[var(--text-primary)]">Format & Quality</label>
-                <select
-                  value={audioOnly ? 'audio' : res}
-                  onChange={(e) => {
-                    if (e.target.value === 'audio') {
-                      setAudioOnly(true);
-                    } else {
-                      setAudioOnly(false);
-                      setRes(e.target.value);
-                    }
-                  }}
-                  className="w-full h-10 px-3 text-sm bg-[var(--bg-subtle)] border border-[var(--border)] rounded-[var(--radius-sm)] text-[var(--text-primary)]"
-                >
-                  <option value="1080">1080p Full HD (MP4)</option>
-                  <option value="720">720p HD (MP4)</option>
-                  <option value="4k">4K Ultra HD (MP4)</option>
-                  <option value="best">Best Available Video</option>
-                  <option value="audio">Audio Only (MP3)</option>
-                </select>
-              </div>
-
-              <div className="flex items-center justify-between p-3 rounded-[var(--radius-sm)] bg-[var(--bg-subtle)] border border-[var(--border)]">
-                <span className="font-medium text-[var(--text-primary)]">Include Subtitles</span>
-                <input
-                  type="checkbox"
-                  checked={subtitles}
-                  onChange={(e) => setSubtitles(e.target.checked)}
-                  className="h-4.5 w-4.5 accent-[var(--primary)] cursor-pointer"
-                />
-              </div>
-
-              <div className="flex justify-end gap-3 pt-3 border-t border-[var(--border)]">
-                <button
-                  type="button"
-                  onClick={() => setSelectedItem(null)}
-                  className="btn btn-secondary text-sm h-10 px-4"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleCustomDownloadSubmit}
-                  className="btn btn-primary text-sm h-10 px-5 font-bold"
-                >
-                  <Download className="h-4 w-4 mr-1.5" />
-                  Start Download
-                </button>
-              </div>
-            </div>
           </div>
         </div>
       )}

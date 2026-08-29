@@ -29,6 +29,29 @@ namespace YoutubeDownloader.Services
             _httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
         }
 
+        private static string GetCookiesFilePath(string? configuredPath = null, string? dataDir = null)
+        {
+            if (!string.IsNullOrEmpty(configuredPath) && File.Exists(configuredPath))
+            {
+                return configuredPath;
+            }
+
+            if (!string.IsNullOrEmpty(dataDir))
+            {
+                string p = Path.Combine(dataDir, "cookies.txt");
+                if (File.Exists(p)) return p;
+            }
+
+            string envDir = Environment.GetEnvironmentVariable("DATA_DIR") ?? "/app/data";
+            string envPath = Path.Combine(envDir, "cookies.txt");
+            if (File.Exists(envPath)) return envPath;
+
+            string localPath = Path.Combine(Directory.GetCurrentDirectory(), "data", "cookies.txt");
+            if (File.Exists(localPath)) return localPath;
+
+            return string.Empty;
+        }
+
         public async Task<List<SearchResultItem>> SearchAsync(string query, int maxResults = 12)
         {
             var results = new List<SearchResultItem>();
@@ -36,10 +59,13 @@ namespace YoutubeDownloader.Services
                 ? query 
                 : $"ytsearch{maxResults}:{query}";
 
+            string cookies = GetCookiesFilePath();
+            string cookiesArg = !string.IsNullOrEmpty(cookies) ? $"--cookies \"{cookies}\" " : "";
+
             var psi = new ProcessStartInfo
             {
                 FileName = "yt-dlp",
-                Arguments = $"--quiet --no-warnings --dump-single-json --flat-playlist \"{searchUrl}\"",
+                Arguments = $"{cookiesArg}--quiet --no-warnings --dump-single-json --flat-playlist --extractor-args \"youtubetab:approximate_date\" \"{searchUrl}\"",
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
@@ -118,6 +144,39 @@ namespace YoutubeDownloader.Services
                     : ts.ToString(@"m\:ss");
 
                 bool isPlaylist = entry.TryGetProperty("_type", out var pType) && pType.GetString() == "playlist";
+                bool isChannel = url.Contains("/channel/") || url.Contains("/@") || url.Contains("/c/") || url.Contains("/user/") ||
+                                 (entry.TryGetProperty("_type", out var pTypeCheck) && pTypeCheck.GetString() == "channel") ||
+                                 (entry.TryGetProperty("ie_key", out var pIe) && pIe.GetString()?.ToLowerInvariant().Contains("channel") == true);
+
+                string uploadDate = "";
+                // Requirement: if it is a channel, do not add date
+                if (!isChannel && !isPlaylist)
+                {
+                    if (entry.TryGetProperty("upload_date", out var pDate) && pDate.ValueKind == JsonValueKind.String)
+                    {
+                        string rawDate = pDate.GetString() ?? "";
+                        if (rawDate.Length == 8 && DateTime.TryParseExact(rawDate, "yyyyMMdd", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var dt))
+                        {
+                            uploadDate = dt.ToString("yyyy-MM-dd");
+                        }
+                        else if (!string.IsNullOrWhiteSpace(rawDate))
+                        {
+                            uploadDate = rawDate;
+                        }
+                    }
+
+                    if (string.IsNullOrEmpty(uploadDate))
+                    {
+                        if (entry.TryGetProperty("timestamp", out var pTs) && pTs.ValueKind == JsonValueKind.Number && pTs.GetInt64() > 0)
+                        {
+                            uploadDate = DateTimeOffset.FromUnixTimeSeconds(pTs.GetInt64()).DateTime.ToString("yyyy-MM-dd");
+                        }
+                        else if (entry.TryGetProperty("release_timestamp", out var pRts) && pRts.ValueKind == JsonValueKind.Number && pRts.GetInt64() > 0)
+                        {
+                            uploadDate = DateTimeOffset.FromUnixTimeSeconds(pRts.GetInt64()).DateTime.ToString("yyyy-MM-dd");
+                        }
+                    }
+                }
 
                 return new SearchResultItem
                 {
@@ -127,6 +186,7 @@ namespace YoutubeDownloader.Services
                     ChannelName = uploader,
                     Thumbnail = thumbnail,
                     Duration = durationStr,
+                    UploadDate = uploadDate,
                     IsPlaylist = isPlaylist
                 };
             }
@@ -139,10 +199,13 @@ namespace YoutubeDownloader.Services
         public async Task<YtDlpChannelMetadata?> GetChannelMetadataAsync(string channelUrl, string avatarsDir)
         {
             string cleanUrl = channelUrl.TrimEnd('/');
+            string cookies = GetCookiesFilePath();
+            string cookiesArg = !string.IsNullOrEmpty(cookies) ? $"--cookies \"{cookies}\" " : "";
+
             var psi = new ProcessStartInfo
             {
                 FileName = "yt-dlp",
-                Arguments = $"--quiet --no-warnings --skip-download --flat-playlist --playlist-items 0 --socket-timeout 15 --dump-single-json \"{cleanUrl}\"",
+                Arguments = $"{cookiesArg}--quiet --no-warnings --skip-download --flat-playlist --playlist-items 0 --socket-timeout 15 --dump-single-json \"{cleanUrl}\"",
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
@@ -304,6 +367,14 @@ namespace YoutubeDownloader.Services
             {
                 args.Add("--download-archive");
                 args.Add(settings.ArchiveFile);
+            }
+
+            // Cookies support (essential for Docker & YouTube anti-bot bypass)
+            string cookiesPath = GetCookiesFilePath(settings.CookiesFile, settings.DataDir);
+            if (!string.IsNullOrEmpty(cookiesPath) && File.Exists(cookiesPath))
+            {
+                args.Add("--cookies");
+                args.Add(cookiesPath);
             }
 
             // Channel specific filters & Fast Date Range Breaking

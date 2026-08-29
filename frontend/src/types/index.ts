@@ -37,6 +37,7 @@ export interface AppSettingsModel {
   dataDir: string;
   archiveFile: string;
   channelsFile: string;
+  cookiesFile: string;
   defaultResolution: string;
   includeSubtitles: boolean;
   subtitleLangs: string;

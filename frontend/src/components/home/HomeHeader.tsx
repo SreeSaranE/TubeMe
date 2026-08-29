@@ -11,7 +11,7 @@ export function HomeHeader({ videoCount, isLoading, onRefresh }: HomeHeaderProps
   return (
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[var(--border)] pb-5">
       <div className="flex items-center gap-3.5">
-        <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-[var(--text-primary)]">
+        <h1 className="text-2xl sm:text-[32px] font-semibold tracking-tight text-[var(--text-primary)]">
           Home
         </h1>
         <span className="counter-badge text-xs px-2.5 py-0.5 font-medium">

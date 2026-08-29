@@ -78,6 +78,7 @@ Thumbs.db
 # Runtime Download & Storage Folders
 # -----------------------------------------------------------------------------
 downloads/
+media/
 data/
 archives/
 ChannelPhotos/

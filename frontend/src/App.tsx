@@ -144,10 +144,10 @@ function AppContent() {
       />
 
       <main
-        className={`flex-1 min-w-0 w-full ${
+        className={`flex-1 min-w-0 w-full px-4 pt-6 pb-6 sm:px-6 sm:pt-8 sm:pb-8 lg:px-8 lg:pt-8 lg:pb-8 ${
           isWatchPage
-            ? 'h-screen overflow-y-auto lg:overflow-hidden flex flex-col px-4 pt-6 pb-4 sm:px-6 sm:pt-8 sm:pb-6 lg:px-8 lg:pt-8 lg:pb-6 max-w-[1600px] mx-auto'
-            : 'h-screen overflow-y-auto px-4 sm:px-8 lg:px-12 py-6 sm:py-10 max-w-7xl mx-auto'
+            ? 'h-screen overflow-y-auto lg:overflow-hidden flex flex-col'
+            : 'h-screen overflow-y-auto'
         }`}
       >
         <div className="md:hidden mb-3 shrink-0">

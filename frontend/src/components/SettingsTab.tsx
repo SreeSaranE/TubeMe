@@ -29,6 +29,7 @@ export function SettingsTab({ settings, onSettingsSaved }: SettingsTabProps) {
     dataDir: '/app/data',
     archiveFile: '/app/data/archives.txt',
     channelsFile: '/app/data/channels.txt',
+    cookiesFile: '/app/data/cookies.txt',
     defaultResolution: '1080',
     includeSubtitles: true,
     subtitleLangs: 'en.*,ta.*',
@@ -176,7 +177,7 @@ export function SettingsTab({ settings, onSettingsSaved }: SettingsTabProps) {
   ];
 
   return (
-    <div className="space-y-8 max-w-5xl mx-auto w-full">
+    <div className="space-y-8 w-full">
       {/* 1. Clean Header (Single Save button is at the bottom) */}
       <div className="flex items-center justify-between border-b border-[var(--border)] pb-5">
         <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-[var(--text-primary)]">
@@ -216,7 +217,7 @@ export function SettingsTab({ settings, onSettingsSaved }: SettingsTabProps) {
               </div>
 
               <div className="space-y-1.5">
-                <label className="font-bold text-[var(--text-primary)]">Database & App Data</label>
+                <label className="font-medium text-[var(--text-primary)]">Database & App Data</label>
                 <input
                   type="text"
                   name="dataDir"
@@ -224,6 +225,21 @@ export function SettingsTab({ settings, onSettingsSaved }: SettingsTabProps) {
                   onChange={handleChange}
                   className="w-full h-11 px-3.5 font-mono text-sm bg-[var(--bg-subtle)] border border-[var(--border)] rounded-[var(--radius-md)] text-[var(--text-primary)]"
                 />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="font-medium text-[var(--text-primary)]">YouTube Cookies File</label>
+                <input
+                  type="text"
+                  name="cookiesFile"
+                  value={formData.cookiesFile || '/app/data/cookies.txt'}
+                  onChange={handleChange}
+                  placeholder="/app/data/cookies.txt"
+                  className="w-full h-11 px-3.5 font-mono text-sm bg-[var(--bg-subtle)] border border-[var(--border)] rounded-[var(--radius-md)] text-[var(--text-primary)]"
+                />
+                <span className="text-[11px] text-[var(--text-muted)] block">
+                  Bypasses YouTube bot detection. Automatically updated by yt-dlp.
+                </span>
               </div>
             </div>
           </div>

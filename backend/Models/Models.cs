@@ -47,6 +47,7 @@ namespace YoutubeDownloader.Models
         public string DataDir { get; set; } = "/app/data";
         public string ArchiveFile { get; set; } = "/app/data/archives.txt";
         public string ChannelsFile { get; set; } = "/app/data/channels.txt";
+        public string CookiesFile { get; set; } = "/app/data/cookies.txt";
         public string DefaultResolution { get; set; } = "1080"; // "1080", "720", "4k", "best"
         public bool IncludeSubtitles { get; set; } = true;
         public string SubtitleLangs { get; set; } = "en.*,ta.*";

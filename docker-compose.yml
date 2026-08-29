@@ -9,7 +9,7 @@ services:
       - "5000:5000"
     volumes:
       - ./downloads:/downloads
-      - ./data:/app/data
+      - ./backend/data:/app/data
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - DATA_DIR=/app/data

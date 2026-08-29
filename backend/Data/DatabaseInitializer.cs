@@ -83,6 +83,7 @@ namespace YoutubeDownloader.Data
                         data_dir TEXT NOT NULL,
                         archive_file TEXT NOT NULL,
                         channels_file TEXT NOT NULL,
+                        cookies_file TEXT NOT NULL DEFAULT '/app/data/cookies.txt',
                         default_resolution TEXT NOT NULL,
                         include_subtitles INTEGER NOT NULL DEFAULT 1,
                         subtitle_langs TEXT NOT NULL,
@@ -91,6 +92,13 @@ namespace YoutubeDownloader.Data
                         concurrent_fragments INTEGER NOT NULL DEFAULT 4
                     );";
                 cmd.ExecuteNonQuery();
+
+                try
+                {
+                    cmd.CommandText = "ALTER TABLE settings ADD COLUMN cookies_file TEXT NOT NULL DEFAULT '/app/data/cookies.txt';";
+                    cmd.ExecuteNonQuery();
+                }
+                catch { }
 
                 // 3. Downloads Table
                 cmd.CommandText = @"
