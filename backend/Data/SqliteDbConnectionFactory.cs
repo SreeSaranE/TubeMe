@@ -15,7 +15,7 @@ namespace YoutubeDownloader.Data
         public SqliteDbConnectionFactory()
         {
             string dataDir = Environment.GetEnvironmentVariable("DATA_DIR") 
-                ?? Path.Combine(Directory.GetCurrentDirectory(), "data");
+                ?? Path.Combine(Directory.GetCurrentDirectory(), "database");
 
             Directory.CreateDirectory(dataDir);
             _dbPath = Path.Combine(dataDir, "tubeme.db");

@@ -128,7 +128,7 @@ namespace YoutubeDownloader.Data
                 if (count == 0)
                 {
                     string dataDir = Path.GetDirectoryName(_connectionFactory.DbPath) 
-                        ?? Path.Combine(Directory.GetCurrentDirectory(), "data");
+                        ?? Path.Combine(Directory.GetCurrentDirectory(), "database");
                     string outputDir = Environment.GetEnvironmentVariable("OUTPUT_DIR") 
                         ?? Path.Combine(Directory.GetCurrentDirectory(), "downloads");
 

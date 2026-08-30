@@ -31,25 +31,107 @@ namespace YoutubeDownloader.Services
 
         private static string GetCookiesFilePath(string? configuredPath = null, string? dataDir = null)
         {
+            string path = string.Empty;
+
             if (!string.IsNullOrEmpty(configuredPath) && File.Exists(configuredPath))
             {
-                return configuredPath;
+                path = configuredPath;
             }
-
-            if (!string.IsNullOrEmpty(dataDir))
+            else if (!string.IsNullOrEmpty(dataDir) && File.Exists(Path.Combine(dataDir, "cookies.txt")))
             {
-                string p = Path.Combine(dataDir, "cookies.txt");
-                if (File.Exists(p)) return p;
+                path = Path.Combine(dataDir, "cookies.txt");
+            }
+            else
+            {
+                string envDir = Environment.GetEnvironmentVariable("DATA_DIR") ?? "/app/data";
+                string envPath = Path.Combine(envDir, "cookies.txt");
+                if (File.Exists(envPath)) path = envPath;
+                else
+                {
+                    string localDbPath = Path.Combine(Directory.GetCurrentDirectory(), "database", "cookies.txt");
+                    if (File.Exists(localDbPath)) path = localDbPath;
+                    else
+                    {
+                        string localPath = Path.Combine(Directory.GetCurrentDirectory(), "data", "cookies.txt");
+                        if (File.Exists(localPath)) path = localPath;
+                    }
+                }
             }
 
-            string envDir = Environment.GetEnvironmentVariable("DATA_DIR") ?? "/app/data";
-            string envPath = Path.Combine(envDir, "cookies.txt");
-            if (File.Exists(envPath)) return envPath;
+            if (!string.IsNullOrEmpty(path))
+            {
+                EnsureValidNetscapeCookies(path);
+            }
 
-            string localPath = Path.Combine(Directory.GetCurrentDirectory(), "data", "cookies.txt");
-            if (File.Exists(localPath)) return localPath;
+            return path;
+        }
 
-            return string.Empty;
+        private static void EnsureValidNetscapeCookies(string filePath)
+        {
+            try
+            {
+                if (!File.Exists(filePath)) return;
+
+                var lines = File.ReadAllLines(filePath);
+                if (lines.Length == 0) return;
+
+                bool needsFix = false;
+                if (!lines[0].StartsWith("# Netscape HTTP Cookie File") && !lines[0].StartsWith("# HTTP Cookie File"))
+                {
+                    needsFix = true;
+                }
+
+                // Check if timestamps are 17-digit Chromium timestamps or if format needs cleaning
+                foreach (var line in lines)
+                {
+                    if (string.IsNullOrWhiteSpace(line) || line.StartsWith("#")) continue;
+                    var parts = line.Split('\t');
+                    if (parts.Length >= 5 && long.TryParse(parts[4], out long exp) && exp > 1000000000000L)
+                    {
+                        needsFix = true;
+                        break;
+                    }
+                }
+
+                if (!needsFix) return;
+
+                var cleanLines = new List<string> { "# Netscape HTTP Cookie File" };
+                foreach (var line in lines)
+                {
+                    string trimmed = line.Trim();
+                    if (string.IsNullOrEmpty(trimmed)) continue;
+                    if (trimmed.StartsWith("#"))
+                    {
+                        if (!trimmed.StartsWith("# Netscape HTTP Cookie File") && !trimmed.StartsWith("# HTTP Cookie File"))
+                        {
+                            cleanLines.Add(trimmed);
+                        }
+                        continue;
+                    }
+
+                    var parts = line.Split('\t');
+                    if (parts.Length >= 7)
+                    {
+                        if (long.TryParse(parts[4], out long exp))
+                        {
+                            if (exp > 1000000000000L)
+                            {
+                                // Chromium microseconds to Unix epoch seconds
+                                exp = (long)((exp / 1000000.0) - 11644473600L);
+                            }
+                            else if (exp > 253402300799L)
+                            {
+                                exp = 2147483647L;
+                            }
+                            parts[4] = exp.ToString();
+                        }
+                        cleanLines.Add(string.Join("\t", parts));
+                    }
+                }
+
+                File.WriteAllLines(filePath, cleanLines);
+            }
+            catch { }
         }
 
         public async Task<List<SearchResultItem>> SearchAsync(string query, int maxResults = 12)

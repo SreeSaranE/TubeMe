@@ -62,7 +62,7 @@ namespace YoutubeDownloader.Endpoints
                 string avatarPath = Path.Combine(settings.DataDir, "ChannelPhotos", decoded);
                 if (!File.Exists(avatarPath))
                 {
-                    string localPath = Path.Combine(Directory.GetCurrentDirectory(), "data", "ChannelPhotos", decoded);
+                    string localPath = Path.Combine(Directory.GetCurrentDirectory(), "database", "ChannelPhotos", decoded);
                     if (File.Exists(localPath))
                     {
                         avatarPath = localPath;

@@ -1,0 +1,32 @@
+name: tubeme
+
+services:
+  tubeme-server:
+    container_name: tubeme_server
+    build:
+      context: ..
+      dockerfile: tubeme-docker/Dockerfile
+    image: tubeme:latest
+    restart: unless-stopped
+    ports:
+      - "${TUBEME_HOST_PORT:-5000}:5000"
+    volumes:
+      # Video downloads output directory
+      - ${DOWNLOAD_LOCATION:-../tubeme-media}:/downloads
+      # Application data, SQLite DB, archives, and YouTube cookies
+      - ${DATA_LOCATION:-../backend/database}:/app/data
+      # Match host timezone
+      - /etc/localtime:/etc/localtime:ro
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - DATA_DIR=/app/data
+      - OUTPUT_DIR=/downloads
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5000/api/settings || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s

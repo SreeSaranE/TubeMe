@@ -79,7 +79,12 @@ Thumbs.db
 # -----------------------------------------------------------------------------
 downloads/
 media/
+tubeme-media/
 data/
+backend/data
+backend/data/
+database/
+backend/database/
 archives/
 ChannelPhotos/
 *.part
