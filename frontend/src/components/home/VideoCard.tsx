@@ -1,5 +1,5 @@
 import React from 'react';
-import { Play, Tv } from 'lucide-react';
+import { Play, Tv, Check } from 'lucide-react';
 import { MediaVideoItem } from '@/types';
 import { formatDate } from '@/lib/utils';
 
@@ -42,8 +42,16 @@ export function VideoCard({ video, onClick }: VideoCardProps) {
           </div>
         </div>
 
-        {/* Format / Resolution Badge (Bottom-Right) */}
-        <div className="absolute bottom-2 right-2 flex items-center gap-1.5">
+        {/* Watched Badge (Top-Left) */}
+        {video.isCompleted && (
+          <div className="absolute top-2 left-2 bg-black/85 backdrop-blur-xs text-white text-[10px] font-semibold tracking-wider uppercase px-2 py-0.5 rounded-[4px] border border-white/10 shadow-sm flex items-center gap-1 pointer-events-none">
+            <Check className="h-3 w-3 text-emerald-400" />
+            <span>Watched</span>
+          </div>
+        )}
+
+        {/* Format / Duration / Resolution Badge (Bottom-Right) */}
+        <div className="absolute bottom-2 right-2 flex items-center gap-1.5 pointer-events-none">
           {video.hasSubtitles && (
             <span className="bg-black/80 backdrop-blur-xs text-white text-[10px] font-mono font-medium px-1.5 py-0.5 rounded-[4px]">
               CC
@@ -52,7 +60,22 @@ export function VideoCard({ video, onClick }: VideoCardProps) {
           <span className="bg-black/85 backdrop-blur-xs text-white text-[11px] font-mono font-medium px-2 py-0.5 rounded-[4px]">
             {video.format}
           </span>
+          {video.duration && (
+            <span className="bg-black/90 backdrop-blur-xs text-white text-[11px] font-mono font-semibold px-2 py-0.5 rounded-[4px]">
+              {video.duration}
+            </span>
+          )}
         </div>
+
+        {/* Watch Progress Bar (Bottom Edge, YouTube Style) */}
+        {typeof video.watchProgressPercentage === 'number' && video.watchProgressPercentage > 0 && (
+          <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/60 overflow-hidden pointer-events-none">
+            <div
+              className="h-full bg-red-600 transition-all duration-300"
+              style={{ width: `${Math.min(100, video.isCompleted ? 100 : video.watchProgressPercentage)}%` }}
+            />
+          </div>
+        )}
       </div>
 
       {/* Video Info: Avatar & Title Block */}
@@ -87,6 +110,12 @@ export function VideoCard({ video, onClick }: VideoCardProps) {
           </div>
 
           <div className="flex items-center gap-2 text-xs font-mono text-[var(--text-muted)]">
+            {video.duration && (
+              <>
+                <span className="text-[var(--text-secondary)] font-medium">{video.duration}</span>
+                <span>•</span>
+              </>
+            )}
             <span>{formatBytes(video.size)}</span>
             <span>•</span>
             <span>{formatDate(video.lastModified)}</span>

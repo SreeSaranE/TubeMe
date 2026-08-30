@@ -122,6 +122,21 @@ namespace YoutubeDownloader.Data
                     );";
                 cmd.ExecuteNonQuery();
 
+                // 4. Watch History Table
+                cmd.CommandText = @"
+                    CREATE TABLE IF NOT EXISTS watch_history (
+                        id TEXT PRIMARY KEY,
+                        relative_path TEXT NOT NULL UNIQUE,
+                        title TEXT,
+                        channel_name TEXT,
+                        current_time REAL NOT NULL DEFAULT 0,
+                        duration REAL NOT NULL DEFAULT 0,
+                        is_completed INTEGER NOT NULL DEFAULT 0,
+                        last_watched_at TEXT NOT NULL
+                    );
+                    CREATE INDEX IF NOT EXISTS idx_watch_history_last_watched ON watch_history(last_watched_at DESC);";
+                cmd.ExecuteNonQuery();
+
                 // Seed default settings row if empty
                 cmd.CommandText = "SELECT COUNT(*) FROM settings;";
                 long count = (long)(cmd.ExecuteScalar() ?? 0);

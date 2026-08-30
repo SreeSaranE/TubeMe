@@ -31,18 +31,27 @@ export function HomeTab() {
     loadVideos();
   }, []);
 
-  // Unique list of channels from downloaded videos
+  // Exclude completely watched videos from Homepage
+  const unwatchedVideos = useMemo(() => {
+    return videos.filter((v) => !v.isCompleted);
+  }, [videos]);
+
+  const hasWatchedVideos = useMemo(() => {
+    return videos.some((v) => v.isCompleted);
+  }, [videos]);
+
+  // Unique list of channels from unwatched videos
   const channelList = useMemo(() => {
     const set = new Set<string>();
-    videos.forEach((v) => {
+    unwatchedVideos.forEach((v) => {
       if (v.channelName) set.add(v.channelName);
     });
     return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [videos]);
+  }, [unwatchedVideos]);
 
   // Filter & Sort
   const filteredVideos = useMemo(() => {
-    return videos
+    return unwatchedVideos
       .filter((video) => {
         const matchesChannel =
           selectedChannel === 'All' ||
@@ -71,19 +80,19 @@ export function HomeTab() {
         }
         return 0;
       });
-  }, [videos, selectedChannel, searchQuery, sortBy]);
+  }, [unwatchedVideos, selectedChannel, searchQuery, sortBy]);
 
   return (
     <div className="space-y-7">
       {/* 1. Header Row */}
       <HomeHeader
-        videoCount={videos.length}
+        videoCount={unwatchedVideos.length}
         isLoading={isLoading}
         onRefresh={loadVideos}
       />
 
       {/* 2. Search & Channel Filter Bar */}
-      {videos.length > 0 && (
+      {unwatchedVideos.length > 0 && (
         <HomeFilters
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
@@ -92,7 +101,7 @@ export function HomeTab() {
           channelList={channelList}
           selectedChannel={selectedChannel}
           onChannelSelect={setSelectedChannel}
-          videos={videos}
+          videos={unwatchedVideos}
         />
       )}
 
@@ -116,6 +125,7 @@ export function HomeTab() {
         <HomeEmptyState
           searchQuery={searchQuery}
           selectedChannel={selectedChannel}
+          hasWatchedVideos={hasWatchedVideos}
         />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-8">

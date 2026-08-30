@@ -10,6 +10,8 @@ import {
   HardDrive,
   Calendar,
   FileCode,
+  Clock,
+  Check,
 } from 'lucide-react';
 import { MediaVideoItem } from '@/types';
 import { api } from '@/services/api';
@@ -112,6 +114,119 @@ export function VideoPlayerTab() {
     }
   };
 
+  const [isCompleted, setIsCompleted] = useState(false);
+  const lastReportedTimeRef = useRef<number>(0);
+
+  // Sync completion state when current video changes
+  useEffect(() => {
+    setIsCompleted(!!currentVideo?.isCompleted);
+    lastReportedTimeRef.current = 0;
+  }, [currentVideo?.relativePath]);
+
+  // Resume playback if video was partially watched
+  const handleLoadedMetadata = () => {
+    if (
+      videoRef.current &&
+      currentVideo &&
+      currentVideo.watchProgressSeconds &&
+      currentVideo.watchProgressSeconds > 3 &&
+      !currentVideo.isCompleted
+    ) {
+      const dur = videoRef.current.duration;
+      if (dur > 0 && currentVideo.watchProgressSeconds < dur - 10) {
+        videoRef.current.currentTime = currentVideo.watchProgressSeconds;
+      }
+    }
+  };
+
+  // Track playback time, reporting progress and marking complete at >= 95%
+  const handleTimeUpdate = () => {
+    const el = videoRef.current;
+    if (!el || !currentVideo) return;
+
+    const currentTime = el.currentTime;
+    const duration = el.duration;
+    if (!duration || duration <= 0) return;
+
+    const ratio = currentTime / duration;
+    const completedNow = ratio >= 0.95;
+
+    if (completedNow && !isCompleted) {
+      setIsCompleted(true);
+      api.updateWatchProgress({
+        relativePath: currentVideo.relativePath,
+        title: currentVideo.title,
+        channelName: currentVideo.channelName,
+        currentTime,
+        duration,
+      }).catch(console.error);
+
+      setVideos((prev) =>
+        prev.map((v) =>
+          v.relativePath === currentVideo.relativePath
+            ? { ...v, isCompleted: true, watchProgressPercentage: 100 }
+            : v
+        )
+      );
+      lastReportedTimeRef.current = currentTime;
+      return;
+    }
+
+    // Periodic progress update every 5 seconds
+    if (Math.abs(currentTime - lastReportedTimeRef.current) >= 5) {
+      lastReportedTimeRef.current = currentTime;
+      api.updateWatchProgress({
+        relativePath: currentVideo.relativePath,
+        title: currentVideo.title,
+        channelName: currentVideo.channelName,
+        currentTime,
+        duration,
+      }).catch(console.error);
+
+      const pct = (currentTime / duration) * 100;
+      setVideos((prev) =>
+        prev.map((v) =>
+          v.relativePath === currentVideo.relativePath
+            ? { ...v, watchProgressSeconds: currentTime, watchProgressPercentage: pct }
+            : v
+        )
+      );
+    }
+  };
+
+  const handlePause = () => {
+    if (videoRef.current && currentVideo) {
+      api.updateWatchProgress({
+        relativePath: currentVideo.relativePath,
+        title: currentVideo.title,
+        channelName: currentVideo.channelName,
+        currentTime: videoRef.current.currentTime,
+        duration: videoRef.current.duration,
+      }).catch(console.error);
+    }
+  };
+
+  const handleEnded = () => {
+    if (videoRef.current && currentVideo) {
+      setIsCompleted(true);
+      api.updateWatchProgress({
+        relativePath: currentVideo.relativePath,
+        title: currentVideo.title,
+        channelName: currentVideo.channelName,
+        currentTime: videoRef.current.duration,
+        duration: videoRef.current.duration,
+      }).catch(console.error);
+
+      setVideos((prev) =>
+        prev.map((v) =>
+          v.relativePath === currentVideo.relativePath
+            ? { ...v, isCompleted: true, watchProgressPercentage: 100 }
+            : v
+        )
+      );
+    }
+  };
+
   if (isLoading && !currentVideo) {
     return (
       <div className="flex items-center justify-center h-full py-24">
@@ -145,35 +260,37 @@ export function VideoPlayerTab() {
   }
 
   return (
-    <div className="w-full h-full flex flex-col min-h-0 overflow-hidden">
-      {/* 1. Header Row: Left "Back to Home" & Right "Up Next", perfectly aligned in the same row with top padding */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center shrink-0 pt-3 pb-3">
-        {/* Left Header: Back to Home Button */}
-        <div className="lg:col-span-8 flex items-center">
-          <button
-            type="button"
-            onClick={() => navigate('/')}
-            className="btn btn-secondary text-xs sm:text-sm h-9 px-3.5 font-medium flex items-center gap-1.5 cursor-pointer"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            <span>Back to Home</span>
-          </button>
-        </div>
+    <div className="w-full min-h-full lg:h-full flex flex-col min-h-0 overflow-visible lg:overflow-hidden">
+      {/* 1. Header Row: Responsive layout - Desktop has aligned two-column headers, mobile has top Back button */}
+      <div className="shrink-0 pt-1 pb-3">
+        <div className="flex lg:grid lg:grid-cols-12 gap-6 items-center">
+          {/* Left: Back to Home Button */}
+          <div className="lg:col-span-8 flex items-center">
+            <button
+              type="button"
+              onClick={() => navigate('/')}
+              className="btn btn-secondary text-xs sm:text-sm h-9 px-3.5 font-medium flex items-center gap-1.5 cursor-pointer"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              <span>Back to Home</span>
+            </button>
+          </div>
 
-        {/* Right Header: Up Next Title (aligned in the same horizontal row) */}
-        <div className="lg:col-span-4 flex items-center justify-between pb-1.5 border-b border-[var(--border)]">
-          <h3 className="font-semibold text-sm sm:text-base text-[var(--text-primary)]">
-            Up Next ({upNextVideos.length})
-          </h3>
+          {/* Right (Desktop only): Up Next Header aligned in horizontal row */}
+          <div className="hidden lg:flex lg:col-span-4 items-center justify-between pb-1.5 border-b border-[var(--border)]">
+            <h3 className="font-semibold text-sm sm:text-base text-[var(--text-primary)]">
+              Up Next ({upNextVideos.length})
+            </h3>
+          </div>
         </div>
       </div>
 
-      {/* 2. Main Content Grid: Cinema Left Column (Fixed in View) + Right Column (Independently Scrollable) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 min-h-0 items-start overflow-hidden">
+      {/* 2. Main Content Grid: Responsive Cinema Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-6 flex-1 min-h-0 items-start overflow-visible lg:overflow-hidden pb-8 lg:pb-0">
         {/* Left Column: Main Video Player, Title, and Channel Row */}
-        <div className="lg:col-span-8 flex flex-col min-h-0 space-y-3">
-          {/* Video Container (16:9 Cinema Aspect Ratio constrained to viewport) */}
-          <div className="relative aspect-video max-h-[calc(100vh-18rem)] w-full rounded-[var(--radius-md)] overflow-hidden bg-black shadow-lg border border-[var(--border)] shrink-0 flex items-center justify-center">
+        <div className="lg:col-span-8 flex flex-col min-h-0 space-y-3 w-full">
+          {/* Video Container (16:9 Cinema Aspect Ratio constrained responsively) */}
+          <div className="relative aspect-video w-full max-h-[50vh] sm:max-h-[60vh] lg:max-h-[calc(100vh-17rem)] xl:max-h-[calc(100vh-15rem)] rounded-[var(--radius-md)] overflow-hidden bg-black shadow-lg border border-[var(--border)] shrink-0 flex items-center justify-center">
             <video
               key={currentVideo.streamUrl}
               ref={videoRef}
@@ -182,6 +299,10 @@ export function VideoPlayerTab() {
               controls
               autoPlay
               playsInline
+              onLoadedMetadata={handleLoadedMetadata}
+              onTimeUpdate={handleTimeUpdate}
+              onPause={handlePause}
+              onEnded={handleEnded}
               className="w-full h-full object-contain"
             >
               {currentVideo.hasSubtitles && currentVideo.subtitleUrl && (
@@ -199,17 +320,17 @@ export function VideoPlayerTab() {
 
           {/* Video Title */}
           <h1
-            className="text-base sm:text-xl font-semibold tracking-tight text-[var(--text-primary)] leading-snug line-clamp-2 shrink-0"
+            className="text-base sm:text-lg lg:text-xl font-semibold tracking-tight text-[var(--text-primary)] leading-snug line-clamp-2 shrink-0 break-words"
             title={currentVideo.title}
           >
             {currentVideo.title}
           </h1>
 
-          {/* Channel Row: Logo, Name & "Details" Popover */}
-          <div className="flex items-center justify-between gap-4 pb-2.5 border-b border-[var(--border)] shrink-0">
-            {/* Channel Info with enlarged logo */}
-            <div className="flex items-center gap-3.5 min-w-0">
-              <div className="w-12 h-12 rounded-full overflow-hidden bg-[var(--bg-subtle)] border border-[var(--border)] shrink-0 flex items-center justify-center shadow-xs">
+          {/* Channel Row: Logo, Name, and Details Popover */}
+          <div className="flex items-center justify-between gap-3 pb-3 border-b border-[var(--border)] shrink-0">
+            {/* Channel Info */}
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full overflow-hidden bg-[var(--bg-subtle)] border border-[var(--border)] shrink-0 flex items-center justify-center shadow-xs">
                 {currentVideo.channelAvatarUrl ? (
                   <img
                     src={currentVideo.channelAvatarUrl}
@@ -217,13 +338,26 @@ export function VideoPlayerTab() {
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <Tv className="h-6 w-6 text-[var(--text-muted)]" />
+                  <Tv className="h-5 w-5 text-[var(--text-muted)]" />
                 )}
               </div>
 
-              <h3 className="font-semibold text-base text-[var(--text-primary)] truncate">
-                {currentVideo.channelName}
-              </h3>
+              <div className="min-w-0 flex-1 flex items-center gap-2.5 flex-wrap">
+                <h3 className="font-semibold text-sm sm:text-base text-[var(--text-primary)] truncate">
+                  {currentVideo.channelName}
+                </h3>
+                {isCompleted && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25 shrink-0">
+                    <Check className="h-3 w-3" />
+                    <span>Watched</span>
+                  </span>
+                )}
+                {currentVideo.duration && (
+                  <span className="text-xs font-mono text-[var(--text-muted)] sm:hidden">
+                    {currentVideo.duration}
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* Details Popover -> Anchored right to Details button */}
@@ -231,7 +365,7 @@ export function VideoPlayerTab() {
               <PopoverTrigger asChild>
                 <button
                   type="button"
-                  className="btn btn-secondary text-xs sm:text-sm h-9 px-4 font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                  className="btn btn-secondary text-xs sm:text-sm h-9 px-3.5 sm:px-4 font-medium flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
                   title="View video details"
                 >
                   <Info className="h-4 w-4" />
@@ -239,13 +373,30 @@ export function VideoPlayerTab() {
                 </button>
               </PopoverTrigger>
 
-              <PopoverContent align="end" sideOffset={8} className="w-80 p-4 space-y-3 shadow-xl border border-[var(--border)] bg-[var(--bg-surface)]">
+              <PopoverContent
+                align="end"
+                sideOffset={8}
+                className="w-[calc(100vw-2.5rem)] sm:w-80 max-w-sm p-4 space-y-3 shadow-xl border border-[var(--border)] bg-[var(--bg-surface)]"
+              >
                 <div className="flex items-center gap-2 border-b border-[var(--border)] pb-2.5">
                   <Info className="h-4 w-4 text-[var(--text-primary)]" />
                   <h4 className="font-semibold text-sm text-[var(--text-primary)]">Video Details</h4>
                 </div>
 
                 <div className="space-y-2 text-xs">
+                  {/* Duration */}
+                  {currentVideo.duration && (
+                    <div className="flex items-center justify-between p-2.5 rounded-[var(--radius-sm)] bg-[var(--bg-subtle)] border border-[var(--border)]">
+                      <div className="flex items-center gap-2 text-[var(--text-secondary)]">
+                        <Clock className="h-4 w-4 text-[var(--text-primary)]" />
+                        <span className="font-medium">Duration</span>
+                      </div>
+                      <span className="font-mono font-medium text-[var(--text-primary)]">
+                        {currentVideo.duration}
+                      </span>
+                    </div>
+                  )}
+
                   {/* Space / File Size */}
                   <div className="flex items-center justify-between p-2.5 rounded-[var(--radius-sm)] bg-[var(--bg-subtle)] border border-[var(--border)]">
                     <div className="flex items-center gap-2 text-[var(--text-secondary)]">
@@ -288,7 +439,7 @@ export function VideoPlayerTab() {
                       setShowDetailsPopover(false);
                       setShowDeleteConfirm(true);
                     }}
-                    className="w-full btn text-xs h-9 px-3 font-medium bg-rose-600 text-white hover:bg-rose-700 flex items-center justify-center gap-1.5 shadow-xs"
+                    className="w-full btn text-xs h-9 px-3 font-medium bg-rose-600 text-white hover:bg-rose-700 flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                     <span>Delete Video</span>
@@ -299,23 +450,32 @@ export function VideoPlayerTab() {
           </div>
         </div>
 
-        {/* Right Column: Suggested Videos Sidebar with its own dedicated scroll */}
-        <div className="lg:col-span-4 flex flex-col h-full min-h-0 overflow-hidden">
+        {/* Right Column: Suggested Videos Sidebar (Independent scroll on desktop, stacked below on mobile) */}
+        <div className="lg:col-span-4 flex flex-col min-h-0 lg:h-full lg:overflow-hidden w-full mt-2 lg:mt-0">
+          {/* Mobile/Tablet Section Header (hidden on desktop where it's at top) */}
+          <div className="lg:hidden flex items-center justify-between pb-2 mb-3 border-b border-[var(--border)]">
+            <h3 className="font-semibold text-sm sm:text-base text-[var(--text-primary)]">
+              Up Next ({upNextVideos.length})
+            </h3>
+          </div>
 
           {upNextVideos.length === 0 ? (
             <div className="card p-6 text-center text-xs text-[var(--text-muted)]">
               No other downloaded videos available.
             </div>
           ) : (
-            <div className="flex-1 overflow-y-auto pr-1.5 space-y-2.5 scrollbar-thin">
+            <div className="flex-1 lg:overflow-y-auto space-y-2.5 pr-0 lg:pr-1.5 scrollbar-thin">
               {upNextVideos.map((item) => (
                 <div
                   key={item.id}
-                  onClick={() => setSearchParams({ path: item.relativePath })}
-                  className="group flex gap-3 p-2 rounded-[var(--radius-md)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
+                  onClick={() => {
+                    setSearchParams({ path: item.relativePath });
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className="group flex gap-3 p-2 rounded-[var(--radius-md)] hover:bg-[var(--bg-subtle)] active:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
                 >
-                  {/* Small 16:9 Thumbnail */}
-                  <div className="relative w-36 aspect-video rounded-[var(--radius-sm)] overflow-hidden bg-black shrink-0 border border-[var(--border)]">
+                  {/* Responsive 16:9 Thumbnail */}
+                  <div className="relative w-32 sm:w-36 aspect-video rounded-[var(--radius-sm)] overflow-hidden bg-black shrink-0 border border-[var(--border)]">
                     <img
                       src={item.thumbnailUrl}
                       alt={item.title}
@@ -326,15 +486,39 @@ export function VideoPlayerTab() {
                           'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="160" height="90" viewBox="0 0 160 90" fill="%2318181b"><rect width="160" height="90" fill="%2318181b"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%2371717a" font-family="sans-serif" font-size="10 font-weight="bold">Video</text></svg>';
                       }}
                     />
-                    <span className="absolute bottom-1 right-1 bg-black/85 text-white text-[9px] font-mono font-medium px-1 rounded">
-                      {item.format}
-                    </span>
+                    {/* Watched Badge (Top-Left) */}
+                    {item.isCompleted && (
+                      <div className="absolute top-1 left-1 bg-black/85 backdrop-blur-xs text-white text-[8px] font-semibold tracking-wider uppercase px-1 py-0.5 rounded-[3px] border border-white/10 flex items-center gap-0.5 pointer-events-none">
+                        <Check className="h-2.5 w-2.5 text-emerald-400" />
+                        <span>Watched</span>
+                      </div>
+                    )}
+                    {/* Thumbnail Badges */}
+                    <div className="absolute bottom-1 right-1 flex items-center gap-1 pointer-events-none">
+                      <span className="bg-black/85 backdrop-blur-xs text-white text-[9px] font-mono font-medium px-1 rounded">
+                        {item.format}
+                      </span>
+                      {item.duration && (
+                        <span className="bg-black/90 backdrop-blur-xs text-white text-[9px] font-mono font-semibold px-1 rounded">
+                          {item.duration}
+                        </span>
+                      )}
+                    </div>
+                    {/* Watch Progress Bar (Bottom edge) */}
+                    {typeof item.watchProgressPercentage === 'number' && item.watchProgressPercentage > 0 && (
+                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-black/60 overflow-hidden pointer-events-none">
+                        <div
+                          className="h-full bg-red-600 transition-all duration-300"
+                          style={{ width: `${Math.min(100, item.isCompleted ? 100 : item.watchProgressPercentage)}%` }}
+                        />
+                      </div>
+                    )}
                   </div>
 
                   {/* Title & Metadata */}
                   <div className="min-w-0 flex-1 space-y-1">
                     <h4
-                      className="font-medium text-xs text-[var(--text-primary)] line-clamp-2 leading-snug group-hover:text-[var(--text-primary)]"
+                      className="font-medium text-xs sm:text-sm text-[var(--text-primary)] line-clamp-2 leading-snug group-hover:text-[var(--text-primary)]"
                       title={item.title}
                     >
                       {item.title}
@@ -342,9 +526,15 @@ export function VideoPlayerTab() {
                     <p className="text-xs text-[var(--text-secondary)] font-medium truncate">
                       {item.channelName}
                     </p>
-                    <p className="text-[11px] font-mono text-[var(--text-muted)]">
-                      {formatBytes(item.size)}
-                    </p>
+                    <div className="flex items-center gap-2 text-[11px] font-mono text-[var(--text-muted)]">
+                      <span>{formatBytes(item.size)}</span>
+                      {item.duration && (
+                        <>
+                          <span>•</span>
+                          <span>{item.duration}</span>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}

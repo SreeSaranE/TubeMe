@@ -24,6 +24,7 @@ builder.Services.AddSingleton<IChannelRepository, ChannelRepository>();
 builder.Services.AddSingleton<ICategoryRepository, CategoryRepository>();
 builder.Services.AddSingleton<ISettingsRepository, SettingsRepository>();
 builder.Services.AddSingleton<IDownloadRepository, DownloadRepository>();
+builder.Services.AddSingleton<IWatchHistoryRepository, WatchHistoryRepository>();
 
 // ==========================================
 // 2. SERVICE LAYER
@@ -77,6 +78,7 @@ apiGroup.MapGroup("/categories").MapCategoryEndpoints();
 apiGroup.MapGroup("/downloads").MapDownloadEndpoints();
 apiGroup.MapGroup("/files").MapFileEndpoints();
 apiGroup.MapGroup("/media").MapMediaEndpoints();
+apiGroup.MapGroup("/history").MapHistoryEndpoints();
 apiGroup.MapGroup("/search").MapSearchEndpoints();
 apiGroup.MapGroup("/settings").MapSettingsEndpoints();
 

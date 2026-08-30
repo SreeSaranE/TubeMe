@@ -1,6 +1,13 @@
 import React from 'react';
 import { Search, ArrowUpDown } from 'lucide-react';
 import { MediaVideoItem } from '@/types';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface HomeFiltersProps {
   searchQuery: string;
@@ -38,19 +45,20 @@ export function HomeFilters({
           />
         </div>
 
-        {/* Sort Selector */}
+        {/* Sort Selector (shadcn Select) */}
         <div className="flex items-center gap-2 shrink-0">
           <ArrowUpDown className="h-4 w-4 text-[var(--text-muted)] hidden sm:inline" />
-          <select
-            value={sortBy}
-            onChange={(e) => onSortChange(e.target.value as any)}
-            className="h-11 px-3 text-xs sm:text-sm bg-[var(--bg-subtle)] border border-[var(--border)] rounded-[var(--radius-md)] text-[var(--text-primary)] font-medium focus:outline-none"
-          >
-            <option value="newest">Latest Downloaded</option>
-            <option value="oldest">Oldest First</option>
-            <option value="size">Largest Size</option>
-            <option value="title">Alphabetical (A-Z)</option>
-          </select>
+          <Select value={sortBy} onValueChange={(val) => onSortChange(val as any)}>
+            <SelectTrigger className="w-[175px] sm:w-[190px] h-11 text-xs sm:text-sm font-medium bg-[var(--bg-subtle)] border-[var(--border)] rounded-[var(--radius-md)]">
+              <SelectValue placeholder="Sort by" />
+            </SelectTrigger>
+            <SelectContent align="end">
+              <SelectItem value="newest">Latest Downloaded</SelectItem>
+              <SelectItem value="oldest">Oldest First</SelectItem>
+              <SelectItem value="size">Largest Size</SelectItem>
+              <SelectItem value="title">Alphabetical (A-Z)</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 

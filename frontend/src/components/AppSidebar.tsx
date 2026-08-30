@@ -7,6 +7,7 @@ import {
   Download,
   Settings,
   Video,
+  History,
 } from 'lucide-react';
 import {
   Sidebar,
@@ -33,6 +34,7 @@ export function AppSidebar({ channelsCount, activeDownloadsCount }: AppSidebarPr
 
   const isLinkActive = (path: string) => {
     if (path === '/') return location.pathname === '/' || location.pathname === '/watch';
+    if (path === '/history') return location.pathname === '/history';
     if (path === '/downloads') {
       return location.pathname === '/downloads' || location.pathname === '/queue';
     }
@@ -50,6 +52,11 @@ export function AppSidebar({ channelsCount, activeDownloadsCount }: AppSidebarPr
       path: '/',
       label: 'Home',
       icon: Home,
+    },
+    {
+      path: '/history',
+      label: 'History',
+      icon: History,
     },
     {
       path: '/channels',

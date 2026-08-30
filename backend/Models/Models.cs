@@ -148,5 +148,30 @@ namespace YoutubeDownloader.Models
         public bool HasSubtitles { get; set; }
         public string? SubtitleUrl { get; set; }
         public string Format { get; set; } = string.Empty;
+        public string? Duration { get; set; }
+        public double? WatchProgressSeconds { get; set; }
+        public double? WatchProgressPercentage { get; set; }
+        public bool IsCompleted { get; set; }
+    }
+
+    public class WatchHistoryItem
+    {
+        public string Id { get; set; } = string.Empty;
+        public string RelativePath { get; set; } = string.Empty;
+        public string Title { get; set; } = string.Empty;
+        public string ChannelName { get; set; } = string.Empty;
+        public double CurrentTime { get; set; }
+        public double Duration { get; set; }
+        public bool IsCompleted { get; set; }
+        public DateTime LastWatchedAt { get; set; }
+    }
+
+    public class UpdateWatchHistoryRequest
+    {
+        public string RelativePath { get; set; } = string.Empty;
+        public string? Title { get; set; }
+        public string? ChannelName { get; set; }
+        public double CurrentTime { get; set; }
+        public double Duration { get; set; }
     }
 }

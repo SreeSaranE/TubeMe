@@ -9,6 +9,7 @@ import { SearchTab } from '@/components/SearchTab';
 import { DownloadsTab } from '@/components/DownloadsTab';
 import { HomeTab } from '@/components/HomeTab';
 import { VideoPlayerTab } from '@/components/VideoPlayerTab';
+import { HistoryTab } from '@/components/HistoryTab';
 import { SettingsTab } from '@/components/SettingsTab';
 import { api, createSignalRConnection } from '@/services/api';
 import {
@@ -159,6 +160,9 @@ function AppContent() {
 
             {/* 2. YouTube-style Video Player Page */}
             <Route path="/watch" element={<VideoPlayerTab />} />
+
+            {/* 2b. Watch History Page */}
+            <Route path="/history" element={<HistoryTab />} />
 
             {/* 3. Channels Management */}
             <Route

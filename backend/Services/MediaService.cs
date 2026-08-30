@@ -1,6 +1,7 @@
-using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
@@ -17,16 +18,20 @@ namespace YoutubeDownloader.Services
     {
         private readonly ISettingsService _settingsService;
         private readonly IChannelRepository _channelRepository;
+        private readonly IWatchHistoryRepository _watchHistoryRepository;
 
         private static readonly HashSet<string> VideoExtensions = new(StringComparer.OrdinalIgnoreCase)
         {
             ".mp4", ".mkv", ".webm", ".mov", ".avi", ".m4v", ".ts", ".3gp"
         };
 
-        public MediaService(ISettingsService settingsService, IChannelRepository channelRepository)
+        private static readonly ConcurrentDictionary<string, (long LastWriteTicks, string Duration)> _durationCache = new(StringComparer.OrdinalIgnoreCase);
+
+        public MediaService(ISettingsService settingsService, IChannelRepository channelRepository, IWatchHistoryRepository watchHistoryRepository)
         {
             _settingsService = settingsService;
             _channelRepository = channelRepository;
+            _watchHistoryRepository = watchHistoryRepository;
         }
 
         public async Task<List<MediaVideoItem>> GetAllVideosAsync()
@@ -41,18 +46,19 @@ namespace YoutubeDownloader.Services
 
             var channels = _channelRepository.GetAll();
             var channelMap = channels.ToDictionary(c => c.Name.Trim().ToLowerInvariant(), c => c);
-
-            var items = new List<MediaVideoItem>();
+            var historyMap = _watchHistoryRepository.GetAllMap();
 
             var allFiles = Directory.EnumerateFiles(rootDir, "*.*", SearchOption.AllDirectories)
-                .Where(f => VideoExtensions.Contains(Path.GetExtension(f)));
+                .Where(f => VideoExtensions.Contains(Path.GetExtension(f)))
+                .ToList();
 
-            foreach (var filePath in allFiles)
+            var tasks = allFiles.Select(async filePath =>
             {
                 try
                 {
                     var fileInfo = new FileInfo(filePath);
                     string relPath = Path.GetRelativePath(rootDir, filePath);
+                    string normRelPath = relPath.Replace('\\', '/');
                     
                     // Determine channel name from folder hierarchy or metadata
                     string channelName = "Local Media";
@@ -91,15 +97,28 @@ namespace YoutubeDownloader.Services
                         }
                     }
 
-                    string encodedRelPath = Uri.EscapeDataString(relPath.Replace('\\', '/'));
+                    string encodedRelPath = Uri.EscapeDataString(normRelPath);
                     string encodedSubPath = subRelPath != null ? Uri.EscapeDataString(subRelPath.Replace('\\', '/')) : "";
 
-                    items.Add(new MediaVideoItem
+                    string? duration = await GetOrExtractDurationAsync(filePath, fileInfo.LastWriteTimeUtc.Ticks);
+
+                    double? progressSec = null;
+                    double? progressPct = null;
+                    bool isCompleted = false;
+
+                    if (historyMap.TryGetValue(normRelPath, out var hist))
+                    {
+                        progressSec = hist.CurrentTime;
+                        isCompleted = hist.IsCompleted || (hist.Duration > 0 && (hist.CurrentTime / hist.Duration) >= 0.95);
+                        progressPct = hist.Duration > 0 ? Math.Min(100.0, (hist.CurrentTime / hist.Duration) * 100.0) : 0;
+                    }
+
+                    return new MediaVideoItem
                     {
                         Id = GetMd5Hash(relPath),
                         Title = cleanTitle,
                         FileName = Path.GetFileName(filePath),
-                        RelativePath = relPath.Replace('\\', '/'),
+                        RelativePath = normRelPath,
                         ChannelName = channelName,
                         ChannelAvatarUrl = avatarUrl,
                         Size = fileInfo.Length,
@@ -108,16 +127,71 @@ namespace YoutubeDownloader.Services
                         ThumbnailUrl = $"/api/media/thumbnail?path={encodedRelPath}",
                         StreamUrl = $"/api/media/stream?path={encodedRelPath}",
                         HasSubtitles = hasSubs,
-                        SubtitleUrl = hasSubs ? $"/api/media/subtitles?path={encodedSubPath}" : null
-                    });
+                        SubtitleUrl = hasSubs ? $"/api/media/subtitles?path={encodedSubPath}" : null,
+                        Duration = duration,
+                        WatchProgressSeconds = progressSec,
+                        WatchProgressPercentage = progressPct,
+                        IsCompleted = isCompleted
+                    };
                 }
                 catch
                 {
-                    // Skip files that cannot be read
+                    return null;
                 }
+            });
+
+            var results = await Task.WhenAll(tasks);
+            return results.Where(item => item != null).Select(item => item!).OrderByDescending(v => v.LastModified).ToList();
+        }
+
+        private async Task<string?> GetOrExtractDurationAsync(string fullVideoPath, long lastWriteTicks)
+        {
+            if (_durationCache.TryGetValue(fullVideoPath, out var cached) && cached.LastWriteTicks == lastWriteTicks)
+            {
+                return cached.Duration;
             }
 
-            return items.OrderByDescending(v => v.LastModified).ToList();
+            try
+            {
+                var psi = new ProcessStartInfo
+                {
+                    FileName = "ffprobe",
+                    Arguments = $"-v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 \"{fullVideoPath}\"",
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                };
+
+                using var process = Process.Start(psi);
+                if (process != null)
+                {
+                    string output = await process.StandardOutput.ReadToEndAsync();
+                    await process.WaitForExitAsync();
+
+                    if (double.TryParse(output.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out double seconds) && seconds > 0)
+                    {
+                        string formatted = FormatDuration(seconds);
+                        _durationCache[fullVideoPath] = (lastWriteTicks, formatted);
+                        return formatted;
+                    }
+                }
+            }
+            catch
+            {
+            }
+
+            return null;
+        }
+
+        private static string FormatDuration(double totalSeconds)
+        {
+            var ts = TimeSpan.FromSeconds(totalSeconds);
+            if (ts.TotalHours >= 1)
+            {
+                return $"{(int)ts.TotalHours}:{ts.Minutes:D2}:{ts.Seconds:D2}";
+            }
+            return $"{ts.Minutes:D2}:{ts.Seconds:D2}";
         }
 
         public async Task<string?> GetThumbnailPathAsync(string relativePath)

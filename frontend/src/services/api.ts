@@ -116,6 +116,25 @@ export const api = {
     fetch(`${API_BASE}/media/file?path=${encodeURIComponent(relativePath)}`, {
       method: 'DELETE',
     }),
+
+  // Watch History
+  updateWatchProgress: (
+    req: import('@/types').UpdateWatchHistoryRequest
+  ): Promise<import('@/types').WatchHistoryItem> =>
+    fetch(`${API_BASE}/history`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req),
+    }).then((res) => res.json()),
+
+  getWatchHistory: (): Promise<import('@/types').WatchHistoryItem[]> =>
+    fetch(`${API_BASE}/history`).then((res) => res.json()),
+
+  deleteWatchHistory: (id: string): Promise<Response> =>
+    fetch(`${API_BASE}/history/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+
+  clearWatchHistory: (): Promise<Response> =>
+    fetch(`${API_BASE}/history`, { method: 'DELETE' }),
 };
 
 export const createSignalRConnection = (): signalR.HubConnection => {

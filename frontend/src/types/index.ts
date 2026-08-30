@@ -112,5 +112,28 @@ export interface MediaVideoItem {
   hasSubtitles: boolean;
   subtitleUrl?: string | null;
   format: string;
+  duration?: string | null;
+  watchProgressSeconds?: number | null;
+  watchProgressPercentage?: number | null;
+  isCompleted?: boolean;
+}
+
+export interface WatchHistoryItem {
+  id: string;
+  relativePath: string;
+  title: string;
+  channelName: string;
+  currentTime: number;
+  duration: number;
+  isCompleted: boolean;
+  lastWatchedAt: string;
+}
+
+export interface UpdateWatchHistoryRequest {
+  relativePath: string;
+  title?: string;
+  channelName?: string;
+  currentTime: number;
+  duration: number;
 }
 
