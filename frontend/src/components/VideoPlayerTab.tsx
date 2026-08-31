@@ -68,8 +68,10 @@ export function VideoPlayerTab() {
 
   const currentVideo = videos.find((v) => v.relativePath === currentPath) || null;
 
-  // Up next videos (excluding current)
-  const upNextVideos = videos.filter((v) => v.relativePath !== currentPath);
+  // Up next videos (excluding current video and completely watched videos)
+  const upNextVideos = videos.filter(
+    (v) => v.relativePath !== currentPath && !v.isCompleted
+  );
 
   const formatBytes = (bytes: number) => {
     if (!bytes) return '0 B';

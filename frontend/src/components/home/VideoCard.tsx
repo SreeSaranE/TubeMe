@@ -1,14 +1,30 @@
-import React from 'react';
-import { Play, Tv, Check } from 'lucide-react';
+import React, { useState } from 'react';
+import { Play, Tv, Check, MoreVertical, CheckCircle2, Trash2, RotateCcw } from 'lucide-react';
 import { MediaVideoItem } from '@/types';
 import { formatDate } from '@/lib/utils';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 
 interface VideoCardProps {
   video: MediaVideoItem;
   onClick: () => void;
+  onMarkAsWatched?: (video: MediaVideoItem) => void;
+  onDeleteFromDevice?: (video: MediaVideoItem) => void;
+  onRemoveFromHistory?: (video: MediaVideoItem) => void;
 }
 
-export function VideoCard({ video, onClick }: VideoCardProps) {
+export function VideoCard({
+  video,
+  onClick,
+  onMarkAsWatched,
+  onDeleteFromDevice,
+  onRemoveFromHistory,
+}: VideoCardProps) {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
   const formatBytes = (bytes: number) => {
     if (!bytes) return '0 B';
     const k = 1024;
@@ -17,10 +33,12 @@ export function VideoCard({ video, onClick }: VideoCardProps) {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
   };
 
+  const hasMenuActions = Boolean(onMarkAsWatched || onDeleteFromDevice || onRemoveFromHistory);
+
   return (
     <div
       onClick={onClick}
-      className="group cursor-pointer flex flex-col space-y-3 select-none"
+      className="group cursor-pointer flex flex-col space-y-3 select-none relative"
     >
       {/* Thumbnail Container (16:9 aspect ratio) */}
       <div className="relative aspect-video w-full rounded-[var(--radius-md)] overflow-hidden bg-black border border-[var(--border)] group-hover:border-[var(--border-strong)] transition-all">
@@ -78,7 +96,7 @@ export function VideoCard({ video, onClick }: VideoCardProps) {
         )}
       </div>
 
-      {/* Video Info: Avatar & Title Block */}
+      {/* Video Info: Avatar, Title Block & 3-Dots Menu */}
       <div className="flex items-start gap-3.5">
         {/* Channel Avatar Logo */}
         <div className="w-11 h-11 rounded-full overflow-hidden bg-[var(--bg-subtle)] border border-[var(--border)] shrink-0 flex items-center justify-center mt-0.5 shadow-xs">
@@ -99,7 +117,7 @@ export function VideoCard({ video, onClick }: VideoCardProps) {
         {/* Title & Metadata */}
         <div className="min-w-0 flex-1 space-y-1">
           <h3
-            className="font-semibold text-[15px] sm:text-base leading-snug text-[var(--text-primary)] line-clamp-2 group-hover:text-[var(--text-primary)] transition-colors"
+            className="font-semibold text-[15px] sm:text-base leading-snug text-[var(--text-primary)] line-clamp-2 group-hover:text-[var(--text-primary)] transition-colors pr-1"
             title={video.title}
           >
             {video.title}
@@ -121,6 +139,77 @@ export function VideoCard({ video, onClick }: VideoCardProps) {
             <span>{formatDate(video.lastModified)}</span>
           </div>
         </div>
+
+        {/* 3-Dots Popup Menu */}
+        {hasMenuActions && (
+          <div onClick={(e) => e.stopPropagation()} className="shrink-0 mt-0.5">
+            <Popover open={isMenuOpen} onOpenChange={setIsMenuOpen}>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
+                  title="More options"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                  }}
+                >
+                  <MoreVertical className="h-4 w-4" />
+                </button>
+              </PopoverTrigger>
+
+              <PopoverContent
+                align="end"
+                className="w-48 p-1.5 bg-[var(--bg-surface)] border border-[var(--border)] shadow-xl rounded-[var(--radius-md)] text-xs space-y-0.5"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {onMarkAsWatched && !video.isCompleted && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsMenuOpen(false);
+                      onMarkAsWatched(video);
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--bg-subtle)] rounded-[var(--radius-sm)] transition-colors text-left cursor-pointer"
+                  >
+                    <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                    <span>Mark as watched</span>
+                  </button>
+                )}
+
+                {onRemoveFromHistory && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsMenuOpen(false);
+                      onRemoveFromHistory(video);
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--bg-subtle)] rounded-[var(--radius-sm)] transition-colors text-left cursor-pointer"
+                  >
+                    <RotateCcw className="h-4 w-4 text-[var(--text-muted)] shrink-0" />
+                    <span>Remove from history</span>
+                  </button>
+                )}
+
+                {onDeleteFromDevice && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsMenuOpen(false);
+                      onDeleteFromDevice(video);
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 rounded-[var(--radius-sm)] transition-colors text-left cursor-pointer"
+                  >
+                    <Trash2 className="h-4 w-4 text-rose-500 shrink-0" />
+                    <span>Delete from device</span>
+                  </button>
+                )}
+              </PopoverContent>
+            </Popover>
+          </div>
+        )}
       </div>
     </div>
   );

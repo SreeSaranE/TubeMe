@@ -4,17 +4,14 @@ import {
   History,
   Trash2,
   Search,
-  Check,
-  Play,
-  Tv,
   Film,
-  ArrowUpDown,
+  RefreshCw,
   X,
   AlertTriangle,
 } from 'lucide-react';
-import { MediaVideoItem, WatchHistoryItem } from '@/types';
+import { MediaVideoItem } from '@/types';
 import { api } from '@/services/api';
-import { formatDate } from '@/lib/utils';
+import { VideoCard } from './home/VideoCard';
 import {
   Select,
   SelectContent,
@@ -45,41 +42,32 @@ export function HistoryTab() {
   const [watchedVideos, setWatchedVideos] = useState<WatchedVideoItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedChannel, setSelectedChannel] = useState<string>('All');
   const [sortBy, setSortBy] = useState<'recent' | 'oldest' | 'size' | 'title'>('recent');
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
 
+  // Deletion modal state
+  const [videoToDelete, setVideoToDelete] = useState<WatchedVideoItem | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const loadHistory = async () => {
     setIsLoading(true);
     try {
-      const [videosList, historyList] = await Promise.all([
-        api.getVideos().catch(() => [] as MediaVideoItem[]),
-        api.getWatchHistory().catch(() => [] as WatchHistoryItem[]),
-      ]);
+      const items = await api.getWatchHistory();
+      const allVideos = await api.getVideos();
 
-      const historyMap = new Map<string, WatchHistoryItem>();
-      historyList.forEach((h) => {
-        historyMap.set(h.relativePath.toLowerCase(), h);
-      });
+      // Filter videos that are completed
+      const historyMap = new Map(items.map((i) => [i.relativePath, i.lastWatchedAt]));
+      const completedVideos: WatchedVideoItem[] = allVideos
+        .filter((v) => v.isCompleted || historyMap.has(v.relativePath))
+        .map((v) => ({
+          ...v,
+          isCompleted: true,
+          lastWatchedAt: historyMap.get(v.relativePath) || v.lastModified,
+        }));
 
-      // Filter all completely watched videos
-      const completed: WatchedVideoItem[] = videosList
-        .filter((v) => {
-          if (v.isCompleted) return true;
-          const h = historyMap.get(v.relativePath.toLowerCase());
-          return h ? h.isCompleted : false;
-        })
-        .map((v) => {
-          const h = historyMap.get(v.relativePath.toLowerCase());
-          return {
-            ...v,
-            isCompleted: true,
-            watchProgressPercentage: 100,
-            lastWatchedAt: h?.lastWatchedAt,
-          };
-        });
-
-      setWatchedVideos(completed);
+      setWatchedVideos(completedVideos);
     } catch (err) {
       console.error('Failed to load watch history:', err);
     } finally {
@@ -91,44 +79,17 @@ export function HistoryTab() {
     loadHistory();
   }, []);
 
-  const formatBytes = (bytes: number) => {
-    if (!bytes) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-  };
-
-  const handleRemoveItem = async (e: React.MouseEvent, item: WatchedVideoItem) => {
-    e.stopPropagation();
-    try {
-      await api.deleteWatchHistory(item.relativePath);
-      setWatchedVideos((prev) => prev.filter((v) => v.relativePath !== item.relativePath));
-      toast({
-        variant: 'success',
-        title: 'Removed from history',
-        description: `"${item.title}" was removed from your watch history.`,
-      });
-    } catch (err) {
-      console.error('Failed to remove history item:', err);
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to remove video from watch history.',
-      });
-    }
-  };
-
   const handleClearAll = async () => {
     setIsClearing(true);
     try {
       await api.clearWatchHistory();
       setWatchedVideos([]);
       setShowClearConfirm(false);
+      setSelectedChannel('All');
       toast({
         variant: 'success',
         title: 'History cleared',
-        description: 'Your watch history has been cleared.',
+        description: 'All watch history records have been cleared.',
       });
     } catch (err) {
       console.error('Failed to clear watch history:', err);
@@ -142,15 +103,80 @@ export function HistoryTab() {
     }
   };
 
+  const handleRemoveHistory = async (video: WatchedVideoItem) => {
+    try {
+      if (video.id) {
+        await api.deleteWatchHistory(video.id);
+      }
+      setWatchedVideos((prev) => prev.filter((v) => v.relativePath !== video.relativePath));
+      toast({
+        variant: 'success',
+        title: 'Removed from history',
+        description: `"${video.title}" removed from watch history.`,
+      });
+    } catch (err) {
+      console.error('Failed to remove history item:', err);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to remove from watch history.',
+      });
+    }
+  };
+
+  const confirmDeleteVideo = async () => {
+    if (!videoToDelete) return;
+    const target = videoToDelete;
+    setIsDeleting(true);
+    try {
+      const res = await api.deleteMediaVideo(target.relativePath);
+      if (!res.ok) {
+        throw new Error('Server returned ' + res.status);
+      }
+
+      setWatchedVideos((prev) => prev.filter((v) => v.relativePath !== target.relativePath));
+      setVideoToDelete(null);
+
+      toast({
+        variant: 'success',
+        title: 'Video deleted',
+        description: `"${target.title}" has been deleted from storage.`,
+      });
+    } catch (err) {
+      console.error('Failed to delete video:', err);
+      toast({
+        variant: 'destructive',
+        title: 'Deletion failed',
+        description: 'Failed to delete video file from device storage.',
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  // Unique list of channels from watched videos
+  const channelList = useMemo(() => {
+    const set = new Set<string>();
+    watchedVideos.forEach((v) => {
+      if (v.channelName) set.add(v.channelName);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [watchedVideos]);
+
   // Filter and sort watched videos
   const filteredAndSortedVideos = useMemo(() => {
     let list = watchedVideos.filter((v) => {
-      if (!searchQuery.trim()) return true;
-      const q = searchQuery.toLowerCase();
-      return (
+      const matchesChannel =
+        selectedChannel === 'All' ||
+        v.channelName.toLowerCase() === selectedChannel.toLowerCase();
+
+      const q = searchQuery.trim().toLowerCase();
+      const matchesQuery =
+        !q ||
         v.title.toLowerCase().includes(q) ||
-        v.channelName.toLowerCase().includes(q)
-      );
+        v.channelName.toLowerCase().includes(q);
+
+      return matchesChannel && matchesQuery;
     });
 
     list.sort((a, b) => {
@@ -175,67 +201,133 @@ export function HistoryTab() {
     });
 
     return list;
-  }, [watchedVideos, searchQuery, sortBy]);
+  }, [watchedVideos, searchQuery, sortBy, selectedChannel]);
 
   return (
-    <div className="space-y-7">
-      {/* 1. Header Section (Aligned with Home and Search) */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[var(--border)] pb-5">
-        <div className="flex items-center gap-3.5">
-          <h1 className="text-2xl sm:text-[32px] font-semibold tracking-tight text-[var(--text-primary)]">
-            Watch History
+    <div className="space-y-6">
+      {/* 1. Top Functions Bar: History (Count) + Search Input + Refresh + Clear + Sort */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+        {/* Left: History Title + Counter */}
+        <div className="flex items-center gap-3 shrink-0">
+          <h1 className="text-2xl sm:text-[28px] font-bold tracking-tight text-[var(--text-primary)]">
+            History
           </h1>
           <span className="counter-badge text-xs px-2.5 py-0.5 font-medium">
-            {watchedVideos.length} {watchedVideos.length === 1 ? 'video' : 'videos'}
+            {watchedVideos.length}
           </span>
         </div>
 
-        {/* Clear History Button */}
-        {watchedVideos.length > 0 && (
-          <div className="flex items-center gap-3 self-end sm:self-auto">
+        {/* Middle: Search Input (flex-1 expands across remaining space) */}
+        <div className="relative flex-1 min-w-0">
+          <Search className="h-4.5 w-4.5 text-[var(--text-muted)] absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            placeholder="Search watched videos or channels..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-9 h-11 text-sm bg-[var(--bg-subtle)] border border-[var(--border)] rounded-[var(--radius-md)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--primary)]"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer p-0.5"
+              title="Clear search"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+
+        {/* Right: Actions: Refresh, Clear History, and Sort */}
+        <div className="flex items-center gap-2.5 shrink-0 justify-end flex-wrap sm:flex-nowrap">
+          {/* Refresh Button */}
+          <button
+            type="button"
+            onClick={loadHistory}
+            disabled={isLoading}
+            className="btn btn-secondary h-11 px-3.5 text-xs sm:text-sm font-medium flex items-center gap-1.5 shrink-0 cursor-pointer"
+            title="Refresh watch history"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+            <span>Refresh</span>
+          </button>
+
+          {/* Clear History Button */}
+          {watchedVideos.length > 0 && (
             <button
               type="button"
               onClick={() => setShowClearConfirm(true)}
-              className="btn btn-secondary h-9 px-3.5 text-xs sm:text-sm font-medium flex items-center gap-1.5 text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 cursor-pointer"
+              className="btn btn-secondary h-11 px-3.5 text-xs sm:text-sm font-medium flex items-center gap-1.5 text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 shrink-0 cursor-pointer"
               title="Clear all watch history"
             >
               <Trash2 className="h-3.5 w-3.5" />
               <span>Clear History</span>
             </button>
-          </div>
-        )}
-      </div>
-
-      {/* 2. Controls Row: Search & Sort */}
-      {watchedVideos.length > 0 && (
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-          {/* Search Input */}
-          <div className="relative flex-1">
-            <Search className="h-4.5 w-4.5 text-[var(--text-muted)] absolute left-3.5 top-3" />
-            <input
-              type="text"
-              placeholder="Search watched videos or channels..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 h-11 text-sm bg-[var(--bg-subtle)] border border-[var(--border)] rounded-[var(--radius-md)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--primary)]"
-            />
-          </div>
+          )}
 
           {/* Sort Selector (shadcn Select) */}
-          <div className="flex items-center gap-2 shrink-0">
-            <ArrowUpDown className="h-4 w-4 text-[var(--text-muted)] hidden sm:inline" />
+          <div className="w-full sm:w-auto">
             <Select value={sortBy} onValueChange={(val) => setSortBy(val as any)}>
-              <SelectTrigger className="w-[175px] sm:w-[190px] h-11 text-xs sm:text-sm font-medium bg-[var(--bg-subtle)] border-[var(--border)] rounded-[var(--radius-md)]">
-                <SelectValue placeholder="Sort history" />
+              <SelectTrigger className="w-full sm:w-[150px] h-11 text-xs sm:text-sm font-medium bg-[var(--bg-subtle)] border-[var(--border)] rounded-[var(--radius-md)]">
+                <SelectValue placeholder="Sort by" />
               </SelectTrigger>
               <SelectContent align="end">
-                <SelectItem value="recent">Recently Watched</SelectItem>
-                <SelectItem value="oldest">Oldest Watched</SelectItem>
+                <SelectItem value="recent">Recent</SelectItem>
+                <SelectItem value="oldest">Oldest</SelectItem>
                 <SelectItem value="size">Largest Size</SelectItem>
-                <SelectItem value="title">Alphabetical (A-Z)</SelectItem>
+                <SelectItem value="title">A-Z</SelectItem>
               </SelectContent>
             </Select>
           </div>
+        </div>
+      </div>
+
+      {/* 2. Channel Filter Pills Row */}
+      {channelList.length > 1 && (
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none min-w-0 max-w-full">
+          <button
+            type="button"
+            onClick={() => setSelectedChannel('All')}
+            className={`px-3.5 py-1.5 rounded-[var(--radius-full)] text-xs font-medium border transition-all cursor-pointer select-none shrink-0 ${
+              selectedChannel === 'All'
+                ? 'bg-[var(--primary)] text-[var(--primary-foreground)] border-[var(--primary)] shadow-xs'
+                : 'bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border-[var(--border)]'
+            }`}
+          >
+            All
+          </button>
+
+          {channelList.map((channel) => {
+            const isSelected = selectedChannel.toLowerCase() === channel.toLowerCase();
+            const count = watchedVideos.filter(
+              (v) => v.channelName.toLowerCase() === channel.toLowerCase()
+            ).length;
+
+            return (
+              <button
+                key={channel}
+                type="button"
+                onClick={() => setSelectedChannel(channel)}
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-[var(--radius-full)] text-xs font-medium border transition-all cursor-pointer select-none shrink-0 ${
+                  isSelected
+                    ? 'bg-[var(--primary)] text-[var(--primary-foreground)] border-[var(--primary)] shadow-xs'
+                    : 'bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border-[var(--border)]'
+                }`}
+              >
+                <span>{channel}</span>
+                <span
+                  className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full font-medium ${
+                    isSelected
+                      ? 'bg-[var(--primary-foreground)]/15 text-[var(--primary-foreground)]'
+                      : 'bg-[var(--bg-subtle)] text-[var(--text-muted)]'
+                  }`}
+                >
+                  {count}
+                </span>
+              </button>
+            );
+          })}
         </div>
       )}
 
@@ -277,122 +369,50 @@ export function HistoryTab() {
           No watched videos matched your search query "{searchQuery}".
         </div>
       ) : (
-        /* Video Grid (Matching Homepage 3-column layout) */
+        /* Video Grid (Matching Homepage 3-column layout & popover menu) */
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredAndSortedVideos.map((video) => (
-            <div
+            <VideoCard
               key={video.id}
+              video={video}
               onClick={() => navigate(`/watch?path=${encodeURIComponent(video.relativePath)}`)}
-              className="group cursor-pointer flex flex-col space-y-3 select-none relative"
-            >
-              {/* Thumbnail Container (16:9 Cinema Aspect Ratio) */}
-              <div className="relative aspect-video w-full rounded-[var(--radius-md)] overflow-hidden bg-black border border-[var(--border)] group-hover:border-[var(--border-strong)] transition-all">
-                <img
-                  src={video.thumbnailUrl}
-                  alt={video.title}
-                  loading="lazy"
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src =
-                      'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180" fill="%23111"><rect width="320" height="180" fill="%2318181b"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%2371717a" font-family="sans-serif" font-size="14" font-weight="bold">Watched Video</text></svg>';
-                  }}
-                />
-
-                {/* Overlay Play Icon on Hover */}
-                <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <div className="w-12 h-12 rounded-full bg-white/90 text-black flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-transform">
-                    <Play className="h-5 w-5 fill-current ml-0.5" />
-                  </div>
-                </div>
-
-                {/* Watched Badge (Top-Left) */}
-                <div className="absolute top-2 left-2 bg-black/85 backdrop-blur-xs text-white text-[10px] font-semibold tracking-wider uppercase px-2 py-0.5 rounded-[4px] border border-white/10 shadow-sm flex items-center gap-1 pointer-events-none">
-                  <Check className="h-3 w-3 text-emerald-400" />
-                  <span>Watched</span>
-                </div>
-
-                {/* Quick Remove from History Button (Top-Right on Hover) */}
-                <button
-                  type="button"
-                  onClick={(e) => handleRemoveItem(e, video)}
-                  title="Remove from watch history"
-                  className="absolute top-2 right-2 p-1.5 rounded-[var(--radius-sm)] bg-black/75 hover:bg-rose-600 text-white opacity-0 group-hover:opacity-100 transition-all cursor-pointer shadow-md"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-
-                {/* Format & Duration Badges (Bottom-Right) */}
-                <div className="absolute bottom-2 right-2 flex items-center gap-1.5 pointer-events-none">
-                  <span className="bg-black/85 backdrop-blur-xs text-white text-[11px] font-mono font-medium px-2 py-0.5 rounded-[4px]">
-                    {video.format}
-                  </span>
-                  {video.duration && (
-                    <span className="bg-black/90 backdrop-blur-xs text-white text-[11px] font-mono font-semibold px-2 py-0.5 rounded-[4px]">
-                      {video.duration}
-                    </span>
-                  )}
-                </div>
-
-                {/* Full Red Progress Bar (YouTube Style) */}
-                <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/60 overflow-hidden pointer-events-none">
-                  <div className="h-full bg-red-600 w-full" />
-                </div>
-              </div>
-
-              {/* Video Info Block */}
-              <div className="flex items-start gap-3.5">
-                {/* Channel Avatar */}
-                <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full overflow-hidden bg-[var(--bg-subtle)] border border-[var(--border)] shrink-0 flex items-center justify-center mt-0.5 shadow-xs">
-                  {video.channelAvatarUrl ? (
-                    <img
-                      src={video.channelAvatarUrl}
-                      alt={video.channelName}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        (e.target as HTMLElement).style.display = 'none';
-                      }}
-                    />
-                  ) : (
-                    <Tv className="h-5 w-5 text-[var(--text-muted)]" />
-                  )}
-                </div>
-
-                {/* Title & Metadata */}
-                <div className="min-w-0 flex-1 space-y-1">
-                  <h3
-                    className="font-semibold text-sm sm:text-base leading-snug text-[var(--text-primary)] line-clamp-2 group-hover:text-[var(--text-primary)] transition-colors"
-                    title={video.title}
-                  >
-                    {video.title}
-                  </h3>
-
-                  <div className="text-[13px] text-[var(--text-secondary)] font-medium truncate">
-                    {video.channelName}
-                  </div>
-
-                  <div className="flex items-center gap-2 text-xs font-mono text-[var(--text-muted)]">
-                    {video.duration && (
-                      <>
-                        <span className="text-[var(--text-secondary)] font-medium">
-                          {video.duration}
-                        </span>
-                        <span>•</span>
-                      </>
-                    )}
-                    <span>{formatBytes(video.size)}</span>
-                    {video.lastWatchedAt && (
-                      <>
-                        <span>•</span>
-                        <span>{formatDate(video.lastWatchedAt)}</span>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
+              onRemoveFromHistory={handleRemoveHistory}
+              onDeleteFromDevice={(v) => setVideoToDelete(v)}
+            />
           ))}
         </div>
       )}
+
+      {/* Delete Video Confirmation Alert Dialog */}
+      <AlertDialog open={Boolean(videoToDelete)} onOpenChange={(open) => !open && setVideoToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-rose-600">
+              <AlertTriangle className="h-5 w-5 shrink-0" />
+              Delete Video from Device?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete <strong>"{videoToDelete?.title}"</strong>? This will permanently remove the media file from your storage disk.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                confirmDeleteVideo();
+              }}
+              disabled={isDeleting}
+              className="bg-rose-600 text-white hover:bg-rose-700 font-medium"
+            >
+              {isDeleting ? 'Deleting...' : 'Delete Permanently'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Clear History Confirmation Alert Dialog */}
       <AlertDialog open={showClearConfirm} onOpenChange={setShowClearConfirm}>

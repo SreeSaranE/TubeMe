@@ -220,66 +220,67 @@ export function ChannelsTab({
   });
 
   return (
-    <div className="space-y-8">
-      {/* 1. Fully Responsive Header & Rock-Solid Stable Sync Button */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[var(--border)] pb-6">
-        {/* Left: Title + Counter Badge */}
-        <div className="flex items-center justify-between sm:justify-start gap-3.5">
-          <div className="flex items-center gap-3.5">
-            <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-[var(--text-primary)]">
-              Channels
-            </h1>
-            <span className="counter-badge text-xs px-2.5 py-0.5 font-medium">
-              {channels.length}
-            </span>
-          </div>
-
-          {/* Quick buttons on mobile top row */}
-          <div className="flex items-center gap-2 sm:hidden">
-            <button
-              type="button"
-              onClick={handleRefresh}
-              disabled={isRefreshing}
-              className="btn btn-secondary h-10 w-10 p-0 flex items-center justify-center rounded-[var(--radius-sm)]"
-              title="Refresh channel metadata"
-            >
-              <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setShowAddModal(true)}
-              className="btn btn-secondary h-10 px-3 text-xs font-medium flex items-center gap-1.5 rounded-[var(--radius-sm)]"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Add</span>
-            </button>
-          </div>
+    <div className="space-y-6">
+      {/* 1. Top Functions Bar: Channels (Count) + Search Input + Actions */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+        {/* Left: Channels Title + Counter */}
+        <div className="flex items-center gap-3 shrink-0">
+          <h1 className="text-2xl sm:text-[28px] font-bold tracking-tight text-[var(--text-primary)]">
+            Channels
+          </h1>
+          <span className="counter-badge text-xs px-2.5 py-0.5 font-medium">
+            {channels.length}
+          </span>
         </div>
 
-        {/* Right: Actions on Tablet/Desktop, Full-Width on Mobile */}
-        <div className="w-full sm:w-auto flex items-center justify-end gap-3 sm:ml-auto">
-          {/* Desktop/Tablet Refresh & Add buttons */}
+        {/* Middle: Search Channels Input Box (flex-1 expands across remaining space) */}
+        <div className="relative flex-1 min-w-0">
+          <Search className="h-4.5 w-4.5 text-[var(--text-muted)] absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            placeholder="Search channels by name or category..."
+            value={searchFilter}
+            onChange={(e) => setSearchFilter(e.target.value)}
+            className="w-full pl-10 pr-9 h-11 text-sm bg-[var(--bg-subtle)] border border-[var(--border)] rounded-[var(--radius-md)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--primary)]"
+          />
+          {searchFilter && (
+            <button
+              type="button"
+              onClick={() => setSearchFilter('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer p-0.5"
+              title="Clear search"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+
+        {/* Right: Actions: Refresh, Add Channel, Sync */}
+        <div className="flex items-center gap-2.5 shrink-0 justify-end flex-wrap sm:flex-nowrap">
+          {/* Refresh Button */}
           <button
             type="button"
             onClick={handleRefresh}
             disabled={isRefreshing}
-            className="hidden sm:inline-flex btn btn-secondary h-10 px-4 text-sm font-medium whitespace-nowrap shrink-0"
+            className="btn btn-secondary h-11 px-3.5 text-xs sm:text-sm font-medium flex items-center gap-1.5 shrink-0 cursor-pointer"
             title="Refresh channel metadata"
           >
-            <RefreshCw className={`h-4 w-4 mr-1.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
             <span>Refresh</span>
           </button>
 
+          {/* Add Channel Button */}
           <button
             type="button"
             onClick={() => setShowAddModal(true)}
-            className="hidden sm:inline-flex btn btn-secondary h-10 px-4 text-sm font-medium whitespace-nowrap shrink-0"
+            className="btn btn-secondary h-11 px-3.5 text-xs sm:text-sm font-medium flex items-center gap-1.5 shrink-0 cursor-pointer"
+            title="Add a new channel"
           >
-            <Plus className="h-4 w-4 mr-1" />
+            <Plus className="h-4 w-4" />
             <span>Add Channel</span>
           </button>
 
+          {/* Sync Button */}
           {channels.length > 0 && (
             <button
               type="button"
@@ -290,12 +291,12 @@ export function ChannelsTab({
                   handleTriggerSync(null, selectedCategoryTab !== 'All' ? selectedCategoryTab : null);
                 }
               }}
-              className="w-full sm:w-auto sm:min-w-[190px] btn btn-primary h-10 px-5 text-sm font-medium shadow-sm whitespace-nowrap shrink-0 flex items-center justify-center transition-all duration-150"
+              className="btn btn-primary h-11 px-4 text-xs sm:text-sm font-medium shadow-sm whitespace-nowrap shrink-0 flex items-center justify-center cursor-pointer"
             >
-              <Play className="h-4 w-4 fill-current mr-2 shrink-0" />
+              <Play className="h-3.5 w-3.5 fill-current mr-1.5 shrink-0" />
               <span className="truncate">
                 {selectedChannels.length > 0
-                  ? `Sync Selected (${selectedChannels.length})`
+                  ? `Sync (${selectedChannels.length})`
                   : selectedCategoryTab !== 'All'
                   ? `Sync ${selectedCategoryTab}`
                   : 'Sync All'}
@@ -305,111 +306,96 @@ export function ChannelsTab({
         </div>
       </div>
 
-      {/* 2. Category Filter Pills & Category Management Bar */}
+      {/* 2. Category Filter Pills & Selection Controls */}
       {channels.length > 0 && (
-        <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-2.5 overflow-x-auto pb-1 scrollbar-none flex-1 min-w-0">
-              <button
-                type="button"
-                onClick={() => setSelectedCategoryTab('All')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-[var(--radius-full)] text-sm font-semibold border transition-all cursor-pointer select-none shrink-0 ${
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          {/* Scrollable Category Filter Pills (Matching Homepage channel pills) */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none flex-1 min-w-0">
+            <button
+              type="button"
+              onClick={() => setSelectedCategoryTab('All')}
+              className={`px-3.5 py-1.5 rounded-[var(--radius-full)] text-xs font-medium border transition-all cursor-pointer select-none shrink-0 ${
+                selectedCategoryTab === 'All'
+                  ? 'bg-[var(--primary)] text-[var(--primary-foreground)] border-[var(--primary)] shadow-xs'
+                  : 'bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border-[var(--border)]'
+              }`}
+            >
+              <span>All</span>
+              <span
+                className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full font-medium ml-1.5 ${
                   selectedCategoryTab === 'All'
-                    ? 'bg-[var(--primary)] text-[var(--primary-foreground)] border-[var(--primary)] shadow-xs'
-                    : 'bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border-[var(--border)]'
+                    ? 'bg-[var(--primary-foreground)]/15 text-[var(--primary-foreground)]'
+                    : 'bg-[var(--bg-subtle)] text-[var(--text-muted)]'
                 }`}
               >
-                <Layers className="h-4 w-4" />
-                <span>All</span>
-                <span
-                  className={`text-xs font-mono px-2 py-0.5 rounded-[var(--radius-full)] font-bold ${
-                    selectedCategoryTab === 'All'
-                      ? 'bg-[var(--primary-foreground)]/15 text-[var(--primary-foreground)]'
-                      : 'bg-[var(--bg-subtle)] text-[var(--text-muted)]'
+                {channels.length}
+              </span>
+            </button>
+
+            {allCategories.map((cat) => {
+              const count = channels.filter(
+                (c) => (c.category || 'General').toLowerCase() === cat.toLowerCase()
+              ).length;
+              if (count === 0 && selectedCategoryTab !== cat) return null;
+
+              const isActive = selectedCategoryTab.toLowerCase() === cat.toLowerCase();
+
+              return (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setSelectedCategoryTab(cat)}
+                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-[var(--radius-full)] text-xs font-medium border transition-all cursor-pointer select-none shrink-0 ${
+                    isActive
+                      ? 'bg-[var(--primary)] text-[var(--primary-foreground)] border-[var(--primary)] shadow-xs'
+                      : 'bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border-[var(--border)]'
                   }`}
                 >
-                  {channels.length}
-                </span>
-              </button>
-
-              {allCategories.map((cat) => {
-                const count = channels.filter(
-                  (c) => (c.category || 'General').toLowerCase() === cat.toLowerCase()
-                ).length;
-                if (count === 0 && selectedCategoryTab !== cat) return null;
-
-                const isActive = selectedCategoryTab.toLowerCase() === cat.toLowerCase();
-
-                return (
-                  <button
-                    key={cat}
-                    type="button"
-                    onClick={() => setSelectedCategoryTab(cat)}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-[var(--radius-full)] text-sm font-semibold border transition-all cursor-pointer select-none shrink-0 ${
+                  <Tag className="h-3 w-3" />
+                  <span>{cat}</span>
+                  <span
+                    className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full font-medium ${
                       isActive
-                        ? 'bg-[var(--primary)] text-[var(--primary-foreground)] border-[var(--primary)] shadow-xs'
-                        : 'bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border-[var(--border)]'
+                        ? 'bg-[var(--primary-foreground)]/15 text-[var(--primary-foreground)]'
+                        : 'bg-[var(--bg-subtle)] text-[var(--text-muted)]'
                     }`}
                   >
-                    <Tag className="h-3.5 w-3.5" />
-                    <span>{cat}</span>
-                    <span
-                      className={`text-xs font-mono px-2 py-0.5 rounded-[var(--radius-full)] font-bold ${
-                        isActive
-                          ? 'bg-[var(--primary-foreground)]/15 text-[var(--primary-foreground)]'
-                          : 'bg-[var(--bg-subtle)] text-[var(--text-muted)]'
-                      }`}
-                    >
-                      {count}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
 
-            {/* Dedicated Manage Categories Trigger */}
+          {/* Right side of Row 2: Select All & Manage Categories */}
+          <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+            {selectedChannels.length > 0 && (
+              <span className="font-mono text-xs text-[var(--text-primary)] font-bold bg-[var(--bg-subtle)] px-2.5 py-1 rounded-[var(--radius-full)] border border-[var(--border)]">
+                {selectedChannels.length} selected
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={toggleSelectAll}
+              className="btn btn-secondary h-8 px-3 text-xs font-medium flex items-center gap-1.5 cursor-pointer rounded-[var(--radius-md)]"
+            >
+              {selectedChannels.length === channels.length ? (
+                <CheckSquare className="h-3.5 w-3.5 text-[var(--text-primary)]" />
+              ) : (
+                <Square className="h-3.5 w-3.5" />
+              )}
+              <span>{selectedChannels.length === channels.length ? 'Deselect All' : 'Select All'}</span>
+            </button>
+
             <button
               type="button"
               onClick={() => setShowManageCategoriesModal(true)}
-              className="btn btn-secondary text-xs sm:text-sm h-10 px-4 rounded-[var(--radius-full)] shrink-0 w-full sm:w-auto justify-center font-semibold"
+              className="btn btn-secondary h-8 px-3 text-xs font-medium flex items-center gap-1.5 cursor-pointer rounded-[var(--radius-md)]"
+              title="Manage categories"
             >
-              <FolderKanban className="h-4 w-4 text-[var(--text-primary)] mr-1" />
-              <span>Manage Categories</span>
+              <FolderKanban className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Categories</span>
             </button>
-          </div>
-
-          {/* Search & Bulk Select Bar */}
-          <div className="card p-4 sm:p-5 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-            <div className="relative flex-1 max-w-lg">
-              <Search className="h-4.5 w-4.5 text-[var(--text-muted)] absolute left-4 top-3.5" />
-              <input
-                type="text"
-                placeholder="Search channels by name or category..."
-                value={searchFilter}
-                onChange={(e) => setSearchFilter(e.target.value)}
-                className="w-full pl-11 pr-4 py-2.5 text-sm bg-[var(--bg-subtle)] border border-[var(--border)] rounded-[var(--radius-md)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--primary)]"
-              />
-            </div>
-
-            <div className="flex items-center justify-between sm:justify-end gap-3 text-sm text-[var(--text-secondary)]">
-              {selectedChannels.length > 0 && (
-                <span className="font-mono text-xs text-[var(--text-primary)] font-bold bg-[var(--bg-subtle)] px-3 py-1 rounded-[var(--radius-full)] border border-[var(--border)]">
-                  {selectedChannels.length} selected
-                </span>
-              )}
-              <button
-                type="button"
-                onClick={toggleSelectAll}
-                className="btn btn-secondary h-10 px-4 text-sm font-semibold"
-              >
-                {selectedChannels.length === channels.length ? (
-                  <CheckSquare className="h-4 w-4 text-[var(--text-primary)] mr-1.5" />
-                ) : (
-                  <Square className="h-4 w-4 mr-1.5" />
-                )}
-                <span>{selectedChannels.length === channels.length ? 'Deselect All' : 'Select All'}</span>
-              </button>
-            </div>
           </div>
         </div>
       )}

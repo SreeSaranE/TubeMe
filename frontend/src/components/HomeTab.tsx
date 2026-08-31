@@ -1,19 +1,35 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { AlertTriangle } from 'lucide-react';
 import { MediaVideoItem } from '@/types';
 import { api } from '@/services/api';
-import { HomeHeader } from './home/HomeHeader';
+import { useToast } from '@/hooks/use-toast';
 import { HomeFilters } from './home/HomeFilters';
 import { VideoCard } from './home/VideoCard';
 import { HomeEmptyState } from './home/HomeEmptyState';
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from '@/components/ui/alert-dialog';
 
 export function HomeTab() {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [videos, setVideos] = useState<MediaVideoItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedChannel, setSelectedChannel] = useState<string>('All');
   const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'size' | 'title'>('newest');
+
+  // Deletion modal state
+  const [videoToDelete, setVideoToDelete] = useState<MediaVideoItem | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const loadVideos = async () => {
     setIsLoading(true);
@@ -30,6 +46,71 @@ export function HomeTab() {
   useEffect(() => {
     loadVideos();
   }, []);
+
+  // Mark video as watched (completion >= 95%)
+  const handleMarkAsWatched = async (video: MediaVideoItem) => {
+    try {
+      await api.updateWatchProgress({
+        relativePath: video.relativePath,
+        title: video.title,
+        channelName: video.channelName,
+        currentTime: 100,
+        duration: 100,
+      });
+
+      setVideos((prev) =>
+        prev.map((v) =>
+          v.relativePath === video.relativePath
+            ? { ...v, isCompleted: true, watchProgressPercentage: 100 }
+            : v
+        )
+      );
+
+      toast({
+        variant: 'success',
+        title: 'Marked as watched',
+        description: `"${video.title}" moved to Watch History.`,
+      });
+    } catch (err) {
+      console.error('Failed to mark as watched:', err);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to update watch status.',
+      });
+    }
+  };
+
+  // Delete video file from device storage
+  const confirmDeleteVideo = async () => {
+    if (!videoToDelete) return;
+    const target = videoToDelete;
+    setIsDeleting(true);
+    try {
+      const res = await api.deleteMediaVideo(target.relativePath);
+      if (!res.ok) {
+        throw new Error('Server returned ' + res.status);
+      }
+
+      setVideos((prev) => prev.filter((v) => v.relativePath !== target.relativePath));
+      setVideoToDelete(null);
+
+      toast({
+        variant: 'success',
+        title: 'Video deleted',
+        description: `"${target.title}" has been deleted from storage.`,
+      });
+    } catch (err) {
+      console.error('Failed to delete video:', err);
+      toast({
+        variant: 'destructive',
+        title: 'Deletion failed',
+        description: 'Failed to delete video file from device.',
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   // Exclude completely watched videos from Homepage
   const unwatchedVideos = useMemo(() => {
@@ -83,29 +164,23 @@ export function HomeTab() {
   }, [unwatchedVideos, selectedChannel, searchQuery, sortBy]);
 
   return (
-    <div className="space-y-7">
-      {/* 1. Header Row */}
-      <HomeHeader
+    <div className="space-y-6">
+      {/* 1. Unified Top Functions Bar & Channel Filters */}
+      <HomeFilters
         videoCount={unwatchedVideos.length}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
         isLoading={isLoading}
         onRefresh={loadVideos}
+        sortBy={sortBy}
+        onSortChange={setSortBy}
+        channelList={channelList}
+        selectedChannel={selectedChannel}
+        onChannelSelect={setSelectedChannel}
+        videos={unwatchedVideos}
       />
 
-      {/* 2. Search & Channel Filter Bar */}
-      {unwatchedVideos.length > 0 && (
-        <HomeFilters
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          sortBy={sortBy}
-          onSortChange={setSortBy}
-          channelList={channelList}
-          selectedChannel={selectedChannel}
-          onChannelSelect={setSelectedChannel}
-          videos={unwatchedVideos}
-        />
-      )}
-
-      {/* 3. YouTube-Style Video Grid (3 videos per row) */}
+      {/* 2. YouTube-Style Video Grid (3 videos per row) */}
       {isLoading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {Array.from({ length: 6 }).map((_, i) => (
@@ -134,10 +209,43 @@ export function HomeTab() {
               key={video.id}
               video={video}
               onClick={() => navigate(`/watch?path=${encodeURIComponent(video.relativePath)}`)}
+              onMarkAsWatched={handleMarkAsWatched}
+              onDeleteFromDevice={(v) => setVideoToDelete(v)}
             />
           ))}
         </div>
       )}
+
+      {/* Delete Confirmation Alert Dialog */}
+      <AlertDialog open={Boolean(videoToDelete)} onOpenChange={(open) => !open && setVideoToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-rose-600">
+              <AlertTriangle className="h-5 w-5 shrink-0" />
+              Delete Video from Device?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete <strong>"{videoToDelete?.title}"</strong>? This will permanently remove the media file from your storage disk.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                confirmDeleteVideo();
+              }}
+              disabled={isDeleting}
+              className="bg-rose-600 text-white hover:bg-rose-700 font-medium"
+            >
+              {isDeleting ? 'Deleting...' : 'Delete Permanently'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
