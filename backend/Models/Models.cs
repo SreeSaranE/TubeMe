@@ -174,4 +174,56 @@ namespace YoutubeDownloader.Models
         public double CurrentTime { get; set; }
         public double Duration { get; set; }
     }
+
+    public class PlaylistModel
+    {
+        public string Id { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public int VideoCount { get; set; }
+        public string? CoverThumbnailUrl { get; set; }
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    }
+
+    public class PlaylistVideoItem
+    {
+        public string Id { get; set; } = string.Empty;
+        public string PlaylistId { get; set; } = string.Empty;
+        public string RelativePath { get; set; } = string.Empty;
+        public string VideoTitle { get; set; } = string.Empty;
+        public string ChannelName { get; set; } = string.Empty;
+        public string? Duration { get; set; }
+        public string? ThumbnailUrl { get; set; }
+        public int Position { get; set; }
+        public DateTime AddedAt { get; set; } = DateTime.UtcNow;
+        public bool IsCompleted { get; set; }
+        public double? WatchProgressPercentage { get; set; }
+    }
+
+    public class PlaylistDetailModel : PlaylistModel
+    {
+        public List<PlaylistVideoItem> Videos { get; set; } = new();
+    }
+
+    public class CreatePlaylistRequest
+    {
+        public string Name { get; set; } = string.Empty;
+        public string? Description { get; set; }
+    }
+
+    public class UpdatePlaylistRequest
+    {
+        public string? Name { get; set; }
+        public string? Description { get; set; }
+    }
+
+    public class AddVideoToPlaylistRequest
+    {
+        public string RelativePath { get; set; } = string.Empty;
+        public string? VideoTitle { get; set; }
+        public string? ChannelName { get; set; }
+        public string? Duration { get; set; }
+        public string? ThumbnailUrl { get; set; }
+    }
 }

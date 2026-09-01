@@ -7,6 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { HomeFilters } from './home/HomeFilters';
 import { VideoCard } from './home/VideoCard';
 import { HomeEmptyState } from './home/HomeEmptyState';
+import { AddToPlaylistModal } from './AddToPlaylistModal';
 import {
   AlertDialog,
   AlertDialogContent,
@@ -31,6 +32,9 @@ export function HomeTab() {
   const [videoToDelete, setVideoToDelete] = useState<MediaVideoItem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Add to playlist modal state
+  const [videoForPlaylist, setVideoForPlaylist] = useState<MediaVideoItem | null>(null);
+
   const loadVideos = async () => {
     setIsLoading(true);
     try {
@@ -47,17 +51,17 @@ export function HomeTab() {
     loadVideos();
   }, []);
 
-  // Mark video as watched (completion >= 95%)
   const handleMarkAsWatched = async (video: MediaVideoItem) => {
     try {
       await api.updateWatchProgress({
         relativePath: video.relativePath,
         title: video.title,
         channelName: video.channelName,
-        currentTime: 100,
-        duration: 100,
+        currentTime: 999999, // Marks as 100% completed
+        duration: 999999,
       });
 
+      // Update local state to completed
       setVideos((prev) =>
         prev.map((v) =>
           v.relativePath === video.relativePath
@@ -69,23 +73,23 @@ export function HomeTab() {
       toast({
         variant: 'success',
         title: 'Marked as watched',
-        description: `"${video.title}" moved to Watch History.`,
+        description: `"${video.title}" moved to History.`,
       });
     } catch (err) {
-      console.error('Failed to mark as watched:', err);
+      console.error('Failed to mark video as watched:', err);
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Failed to update watch status.',
+        description: 'Failed to mark video as watched.',
       });
     }
   };
 
-  // Delete video file from device storage
   const confirmDeleteVideo = async () => {
     if (!videoToDelete) return;
     const target = videoToDelete;
     setIsDeleting(true);
+
     try {
       const res = await api.deleteMediaVideo(target.relativePath);
       if (!res.ok) {
@@ -105,14 +109,14 @@ export function HomeTab() {
       toast({
         variant: 'destructive',
         title: 'Deletion failed',
-        description: 'Failed to delete video file from device.',
+        description: 'Failed to delete video file from device storage.',
       });
     } finally {
       setIsDeleting(false);
     }
   };
 
-  // Exclude completely watched videos from Homepage
+  // Filter out completed videos for Home page (unwatched only)
   const unwatchedVideos = useMemo(() => {
     return videos.filter((v) => !v.isCompleted);
   }, [videos]);
@@ -121,7 +125,7 @@ export function HomeTab() {
     return videos.some((v) => v.isCompleted);
   }, [videos]);
 
-  // Unique list of channels from unwatched videos
+  // Unique list of channels from UNWATCHED videos
   const channelList = useMemo(() => {
     const set = new Set<string>();
     unwatchedVideos.forEach((v) => {
@@ -130,53 +134,54 @@ export function HomeTab() {
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [unwatchedVideos]);
 
-  // Filter & Sort
+  // Filter and sort unwatched videos
   const filteredVideos = useMemo(() => {
-    return unwatchedVideos
-      .filter((video) => {
-        const matchesChannel =
-          selectedChannel === 'All' ||
-          video.channelName.toLowerCase() === selectedChannel.toLowerCase();
+    let list = unwatchedVideos.filter((v) => {
+      const matchesChannel =
+        selectedChannel === 'All' ||
+        v.channelName.toLowerCase() === selectedChannel.toLowerCase();
 
-        const query = searchQuery.trim().toLowerCase();
-        const matchesQuery =
-          !query ||
-          video.title.toLowerCase().includes(query) ||
-          video.channelName.toLowerCase().includes(query);
+      const q = searchQuery.trim().toLowerCase();
+      const matchesQuery =
+        !q ||
+        v.title.toLowerCase().includes(q) ||
+        v.channelName.toLowerCase().includes(q);
 
-        return matchesChannel && matchesQuery;
-      })
-      .sort((a, b) => {
-        if (sortBy === 'newest') {
+      return matchesChannel && matchesQuery;
+    });
+
+    list.sort((a, b) => {
+      switch (sortBy) {
+        case 'newest':
           return new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime();
-        }
-        if (sortBy === 'oldest') {
+        case 'oldest':
           return new Date(a.lastModified).getTime() - new Date(b.lastModified).getTime();
-        }
-        if (sortBy === 'size') {
+        case 'size':
           return b.size - a.size;
-        }
-        if (sortBy === 'title') {
+        case 'title':
           return a.title.localeCompare(b.title);
-        }
-        return 0;
-      });
-  }, [unwatchedVideos, selectedChannel, searchQuery, sortBy]);
+        default:
+          return 0;
+      }
+    });
+
+    return list;
+  }, [unwatchedVideos, searchQuery, sortBy, selectedChannel]);
 
   return (
     <div className="space-y-6">
-      {/* 1. Unified Top Functions Bar & Channel Filters */}
+      {/* 1. Top Functions Bar (Row 1: Search + Actions, Row 2: Channel Filter Pills) */}
       <HomeFilters
         videoCount={unwatchedVideos.length}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
-        isLoading={isLoading}
-        onRefresh={loadVideos}
+        selectedChannel={selectedChannel}
+        onChannelSelect={setSelectedChannel}
         sortBy={sortBy}
         onSortChange={setSortBy}
         channelList={channelList}
-        selectedChannel={selectedChannel}
-        onChannelSelect={setSelectedChannel}
+        isLoading={isLoading}
+        onRefresh={loadVideos}
         videos={unwatchedVideos}
       />
 
@@ -209,12 +214,20 @@ export function HomeTab() {
               key={video.id}
               video={video}
               onClick={() => navigate(`/watch?path=${encodeURIComponent(video.relativePath)}`)}
+              onAddToPlaylist={(v) => setVideoForPlaylist(v)}
               onMarkAsWatched={handleMarkAsWatched}
               onDeleteFromDevice={(v) => setVideoToDelete(v)}
             />
           ))}
         </div>
       )}
+
+      {/* Add to Playlist Modal */}
+      <AddToPlaylistModal
+        video={videoForPlaylist}
+        isOpen={Boolean(videoForPlaylist)}
+        onClose={() => setVideoForPlaylist(null)}
+      />
 
       {/* Delete Confirmation Alert Dialog */}
       <AlertDialog open={Boolean(videoToDelete)} onOpenChange={(open) => !open && setVideoToDelete(null)}>

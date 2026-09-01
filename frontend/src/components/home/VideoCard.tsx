@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Play, Tv, Check, MoreVertical, CheckCircle2, Trash2, RotateCcw } from 'lucide-react';
+import { Play, Tv, Check, MoreVertical, CheckCircle2, Trash2, RotateCcw, ListPlus } from 'lucide-react';
 import { MediaVideoItem } from '@/types';
 import { formatDate } from '@/lib/utils';
 import {
@@ -12,6 +12,7 @@ interface VideoCardProps {
   video: MediaVideoItem;
   onClick: () => void;
   onMarkAsWatched?: (video: MediaVideoItem) => void;
+  onAddToPlaylist?: (video: MediaVideoItem) => void;
   onDeleteFromDevice?: (video: MediaVideoItem) => void;
   onRemoveFromHistory?: (video: MediaVideoItem) => void;
 }
@@ -20,6 +21,7 @@ export function VideoCard({
   video,
   onClick,
   onMarkAsWatched,
+  onAddToPlaylist,
   onDeleteFromDevice,
   onRemoveFromHistory,
 }: VideoCardProps) {
@@ -33,7 +35,9 @@ export function VideoCard({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
   };
 
-  const hasMenuActions = Boolean(onMarkAsWatched || onDeleteFromDevice || onRemoveFromHistory);
+  const hasMenuActions = Boolean(
+    onMarkAsWatched || onAddToPlaylist || onDeleteFromDevice || onRemoveFromHistory
+  );
 
   return (
     <div
@@ -162,6 +166,21 @@ export function VideoCard({
                 className="w-48 p-1.5 bg-[var(--bg-surface)] border border-[var(--border)] shadow-xl rounded-[var(--radius-md)] text-xs space-y-0.5"
                 onClick={(e) => e.stopPropagation()}
               >
+                {onAddToPlaylist && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsMenuOpen(false);
+                      onAddToPlaylist(video);
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--bg-subtle)] rounded-[var(--radius-sm)] transition-colors text-left cursor-pointer"
+                  >
+                    <ListPlus className="h-4 w-4 text-[var(--text-primary)] shrink-0" />
+                    <span>Add to playlist</span>
+                  </button>
+                )}
+
                 {onMarkAsWatched && !video.isCompleted && (
                   <button
                     type="button"

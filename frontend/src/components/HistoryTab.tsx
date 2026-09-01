@@ -58,14 +58,22 @@ export function HistoryTab() {
       const allVideos = await api.getVideos();
 
       // Filter videos that are completed
-      const historyMap = new Map(items.map((i) => [i.relativePath, i.lastWatchedAt]));
+      const historyMap = new Map(
+        items.map((i) => [i.relativePath.replace(/\\/g, '/').toLowerCase(), i.lastWatchedAt])
+      );
       const completedVideos: WatchedVideoItem[] = allVideos
-        .filter((v) => v.isCompleted || historyMap.has(v.relativePath))
-        .map((v) => ({
-          ...v,
-          isCompleted: true,
-          lastWatchedAt: historyMap.get(v.relativePath) || v.lastModified,
-        }));
+        .filter((v) => {
+          const normKey = (v.relativePath || '').replace(/\\/g, '/').toLowerCase();
+          return v.isCompleted || historyMap.has(normKey);
+        })
+        .map((v) => {
+          const normKey = (v.relativePath || '').replace(/\\/g, '/').toLowerCase();
+          return {
+            ...v,
+            isCompleted: true,
+            lastWatchedAt: historyMap.get(normKey) || v.lastModified,
+          };
+        });
 
       setWatchedVideos(completedVideos);
     } catch (err) {
@@ -82,7 +90,10 @@ export function HistoryTab() {
   const handleClearAll = async () => {
     setIsClearing(true);
     try {
-      await api.clearWatchHistory();
+      const res = await api.clearWatchHistory();
+      if (!res.ok) {
+        throw new Error('Failed to clear watch history');
+      }
       setWatchedVideos([]);
       setShowClearConfirm(false);
       setSelectedChannel('All');
@@ -105,8 +116,12 @@ export function HistoryTab() {
 
   const handleRemoveHistory = async (video: WatchedVideoItem) => {
     try {
-      if (video.id) {
-        await api.deleteWatchHistory(video.id);
+      const target = video.relativePath || video.id;
+      if (target) {
+        const res = await api.deleteWatchHistory(target);
+        if (!res.ok) {
+          throw new Error('Failed to remove from watch history');
+        }
       }
       setWatchedVideos((prev) => prev.filter((v) => v.relativePath !== video.relativePath));
       toast({

@@ -8,6 +8,7 @@ import {
   Settings,
   Video,
   History,
+  ListVideo,
 } from 'lucide-react';
 import {
   Sidebar,
@@ -62,6 +63,11 @@ export function AppSidebar({ channelsCount, activeDownloadsCount }: AppSidebarPr
       path: '/channels',
       label: 'Channels',
       icon: Tv,
+    },
+    {
+      path: '/playlists',
+      label: 'Playlists',
+      icon: ListVideo,
     },
     {
       path: '/search',

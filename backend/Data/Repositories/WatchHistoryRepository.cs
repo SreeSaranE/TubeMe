@@ -34,7 +34,8 @@ namespace YoutubeDownloader.Data.Repositories
                 cmd.CommandText = @"
                     INSERT INTO watch_history (id, relative_path, title, channel_name, current_time, duration, is_completed, last_watched_at)
                     VALUES (@id, @relativePath, @title, @channelName, @currentTime, @duration, @isCompleted, datetime('now'))
-                    ON CONFLICT(id) DO UPDATE SET
+                    ON CONFLICT(relative_path) DO UPDATE SET
+                        id = @id,
                         current_time = @currentTime,
                         duration = CASE WHEN @duration > 0 THEN @duration ELSE duration END,
                         title = COALESCE(NULLIF(@title, ''), title),
@@ -65,8 +66,15 @@ namespace YoutubeDownloader.Data.Repositories
                 using var conn = _connectionFactory.CreateConnection();
                 using var cmd = conn.CreateCommand();
 
-                cmd.CommandText = "SELECT id, relative_path, title, channel_name, current_time, duration, is_completed, last_watched_at FROM watch_history WHERE id = @id LIMIT 1;";
+                cmd.CommandText = @"
+                    SELECT id, relative_path, title, channel_name, current_time, duration, is_completed, last_watched_at 
+                    FROM watch_history 
+                    WHERE id = @id 
+                       OR LOWER(relative_path) = LOWER(@normalizedRelPath) 
+                       OR relative_path = @normalizedRelPath
+                    LIMIT 1;";
                 cmd.Parameters.AddWithValue("@id", id);
+                cmd.Parameters.AddWithValue("@normalizedRelPath", normalizedRelPath);
 
                 using var reader = cmd.ExecuteReader();
                 if (reader.Read())
@@ -111,22 +119,37 @@ namespace YoutubeDownloader.Data.Repositories
                 while (reader.Read())
                 {
                     var item = MapFromReader(reader);
-                    map[item.RelativePath] = item;
+                    map[item.RelativePath.Replace('\\', '/')] = item;
                 }
 
                 return map;
             }
         }
 
-        public bool Delete(string id)
+        public bool Delete(string idOrPath)
         {
+            if (string.IsNullOrWhiteSpace(idOrPath)) return false;
+            string normalizedRelPath = idOrPath.Trim().Replace('\\', '/');
+            string hash1 = GetMd5Hash(normalizedRelPath);
+            string hash2 = GetMd5Hash(idOrPath.Trim());
+
             lock (_lock)
             {
                 using var conn = _connectionFactory.CreateConnection();
                 using var cmd = conn.CreateCommand();
 
-                cmd.CommandText = "DELETE FROM watch_history WHERE id = @id OR relative_path = @id;";
-                cmd.Parameters.AddWithValue("@id", id);
+                cmd.CommandText = @"
+                    DELETE FROM watch_history 
+                    WHERE id = @idOrPath 
+                       OR id = @hash1 
+                       OR id = @hash2 
+                       OR LOWER(relative_path) = LOWER(@normalizedRelPath) 
+                       OR relative_path = @idOrPath 
+                       OR relative_path = @normalizedRelPath;";
+                cmd.Parameters.AddWithValue("@idOrPath", idOrPath.Trim());
+                cmd.Parameters.AddWithValue("@hash1", hash1);
+                cmd.Parameters.AddWithValue("@hash2", hash2);
+                cmd.Parameters.AddWithValue("@normalizedRelPath", normalizedRelPath);
                 return cmd.ExecuteNonQuery() > 0;
             }
         }
@@ -161,13 +184,8 @@ namespace YoutubeDownloader.Data.Repositories
         private static string GetMd5Hash(string input)
         {
             using var md5 = MD5.Create();
-            byte[] bytes = md5.ComputeHash(Encoding.UTF8.GetBytes(input));
-            var sb = new StringBuilder();
-            foreach (var b in bytes)
-            {
-                sb.Append(b.ToString("x2"));
-            }
-            return sb.ToString();
+            byte[] bytes = md5.ComputeHash(Encoding.UTF8.GetBytes(input.ToLowerInvariant()));
+            return Convert.ToHexString(bytes).ToLowerInvariant();
         }
     }
 }

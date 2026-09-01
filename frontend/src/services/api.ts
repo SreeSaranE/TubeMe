@@ -130,11 +130,52 @@ export const api = {
   getWatchHistory: (): Promise<import('@/types').WatchHistoryItem[]> =>
     fetch(`${API_BASE}/history`).then((res) => res.json()),
 
-  deleteWatchHistory: (id: string): Promise<Response> =>
-    fetch(`${API_BASE}/history/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  deleteWatchHistory: (idOrPath: string): Promise<Response> =>
+    fetch(`${API_BASE}/history/item?path=${encodeURIComponent(idOrPath)}`, { method: 'DELETE' }),
 
   clearWatchHistory: (): Promise<Response> =>
-    fetch(`${API_BASE}/history`, { method: 'DELETE' }),
+    fetch(`${API_BASE}/history/clear`, { method: 'DELETE' }),
+
+  // Playlists (for videos)
+  getPlaylists: (): Promise<import('@/types').PlaylistModel[]> =>
+    fetch(`${API_BASE}/playlists`).then((res) => res.json()),
+
+  getPlaylist: (id: string): Promise<import('@/types').PlaylistDetailModel> =>
+    fetch(`${API_BASE}/playlists/${encodeURIComponent(id)}`).then((res) => res.json()),
+
+  createPlaylist: (req: import('@/types').CreatePlaylistRequest): Promise<Response> =>
+    fetch(`${API_BASE}/playlists`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req),
+    }),
+
+  updatePlaylist: (id: string, req: import('@/types').UpdatePlaylistRequest): Promise<Response> =>
+    fetch(`${API_BASE}/playlists/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req),
+    }),
+
+  deletePlaylist: (id: string): Promise<Response> =>
+    fetch(`${API_BASE}/playlists/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+
+  addVideoToPlaylist: (playlistId: string, req: import('@/types').AddVideoToPlaylistRequest): Promise<Response> =>
+    fetch(`${API_BASE}/playlists/${encodeURIComponent(playlistId)}/videos`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req),
+    }),
+
+  removeVideoFromPlaylist: (playlistId: string, relativePath: string): Promise<Response> =>
+    fetch(`${API_BASE}/playlists/${encodeURIComponent(playlistId)}/videos?path=${encodeURIComponent(relativePath)}`, {
+      method: 'DELETE',
+    }),
+
+  getVideoPlaylistMemberships: (relativePath: string): Promise<string[]> =>
+    fetch(`${API_BASE}/playlists/video-memberships?path=${encodeURIComponent(relativePath)}`).then((res) =>
+      res.json()
+    ),
 };
 
 export const createSignalRConnection = (): signalR.HubConnection => {

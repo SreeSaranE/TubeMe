@@ -25,6 +25,7 @@ builder.Services.AddSingleton<ICategoryRepository, CategoryRepository>();
 builder.Services.AddSingleton<ISettingsRepository, SettingsRepository>();
 builder.Services.AddSingleton<IDownloadRepository, DownloadRepository>();
 builder.Services.AddSingleton<IWatchHistoryRepository, WatchHistoryRepository>();
+builder.Services.AddSingleton<IPlaylistRepository, PlaylistRepository>();
 
 // ==========================================
 // 2. SERVICE LAYER
@@ -35,6 +36,7 @@ builder.Services.AddSingleton<IChannelService, ChannelService>();
 builder.Services.AddSingleton<ICategoryService, CategoryService>();
 builder.Services.AddSingleton<IMediaFileService, MediaFileService>();
 builder.Services.AddSingleton<IMediaService, MediaService>();
+builder.Services.AddSingleton<IPlaylistService, PlaylistService>();
 
 // Register DownloadQueueService as Singleton, Interface implementation, and Background HostedService
 builder.Services.AddSingleton<DownloadQueueService>();
@@ -75,6 +77,7 @@ app.UseRouting();
 var apiGroup = app.MapGroup("/api");
 apiGroup.MapGroup("/channels").MapChannelEndpoints();
 apiGroup.MapGroup("/categories").MapCategoryEndpoints();
+apiGroup.MapGroup("/playlists").MapPlaylistEndpoints();
 apiGroup.MapGroup("/downloads").MapDownloadEndpoints();
 apiGroup.MapGroup("/files").MapFileEndpoints();
 apiGroup.MapGroup("/media").MapMediaEndpoints();

@@ -137,3 +137,49 @@ export interface UpdateWatchHistoryRequest {
   duration: number;
 }
 
+export interface PlaylistModel {
+  id: string;
+  name: string;
+  description?: string | null;
+  videoCount: number;
+  coverThumbnailUrl?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PlaylistVideoItem {
+  id: string;
+  playlistId: string;
+  relativePath: string;
+  videoTitle: string;
+  channelName: string;
+  duration?: string | null;
+  thumbnailUrl?: string | null;
+  position: number;
+  addedAt: string;
+  watchProgressPercentage?: number | null;
+  isCompleted?: boolean;
+}
+
+export interface PlaylistDetailModel extends PlaylistModel {
+  videos: PlaylistVideoItem[];
+}
+
+export interface CreatePlaylistRequest {
+  name: string;
+  description?: string;
+}
+
+export interface UpdatePlaylistRequest {
+  name?: string;
+  description?: string;
+}
+
+export interface AddVideoToPlaylistRequest {
+  relativePath: string;
+  videoTitle?: string;
+  channelName?: string;
+  duration?: string;
+  thumbnailUrl?: string;
+}
+

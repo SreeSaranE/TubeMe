@@ -10,6 +10,7 @@ import { DownloadsTab } from '@/components/DownloadsTab';
 import { HomeTab } from '@/components/HomeTab';
 import { VideoPlayerTab } from '@/components/VideoPlayerTab';
 import { HistoryTab } from '@/components/HistoryTab';
+import { PlaylistsTab } from '@/components/PlaylistsTab';
 import { SettingsTab } from '@/components/SettingsTab';
 import { api, createSignalRConnection } from '@/services/api';
 import {
@@ -180,6 +181,10 @@ function AppContent() {
                 />
               }
             />
+
+            {/* Playlists & Categories Page */}
+            <Route path="/playlists" element={<PlaylistsTab />} />
+            <Route path="/playlist" element={<Navigate to="/playlists" replace />} />
 
             {/* 4. Search & Direct Downloader */}
             <Route

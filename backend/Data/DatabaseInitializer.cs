@@ -137,6 +137,48 @@ namespace YoutubeDownloader.Data
                     CREATE INDEX IF NOT EXISTS idx_watch_history_last_watched ON watch_history(last_watched_at DESC);";
                 cmd.ExecuteNonQuery();
 
+                // 5. Playlists Table
+                cmd.CommandText = @"
+                    CREATE TABLE IF NOT EXISTS playlists (
+                        id TEXT PRIMARY KEY,
+                        name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+                        description TEXT,
+                        created_at TEXT NOT NULL,
+                        updated_at TEXT NOT NULL
+                    );";
+                cmd.ExecuteNonQuery();
+
+                // 6. Playlist Videos Table (Mapping table for videos in playlists)
+                cmd.CommandText = @"
+                    CREATE TABLE IF NOT EXISTS playlist_videos (
+                        id TEXT PRIMARY KEY,
+                        playlist_id TEXT NOT NULL,
+                        relative_path TEXT NOT NULL,
+                        video_title TEXT,
+                        channel_name TEXT,
+                        duration TEXT,
+                        thumbnail_url TEXT,
+                        position INTEGER NOT NULL DEFAULT 0,
+                        added_at TEXT NOT NULL,
+                        UNIQUE(playlist_id, relative_path),
+                        FOREIGN KEY (playlist_id) REFERENCES playlists(id) ON DELETE CASCADE
+                    );
+                    CREATE INDEX IF NOT EXISTS idx_playlist_videos_pid ON playlist_videos(playlist_id);
+                    CREATE INDEX IF NOT EXISTS idx_playlist_videos_path ON playlist_videos(relative_path);";
+                cmd.ExecuteNonQuery();
+
+                // Seed default "Favorites" and "Watch Later" playlists if empty
+                cmd.CommandText = "SELECT COUNT(*) FROM playlists;";
+                long playlistCount = (long)(cmd.ExecuteScalar() ?? 0);
+                if (playlistCount == 0)
+                {
+                    cmd.CommandText = @"
+                        INSERT OR IGNORE INTO playlists (id, name, description, created_at, updated_at) VALUES
+                        (lower(hex(randomblob(16))), 'Favorites', 'Favorite downloaded videos', datetime('now'), datetime('now')),
+                        (lower(hex(randomblob(16))), 'Watch Later', 'Saved videos to watch later', datetime('now'), datetime('now'));";
+                    cmd.ExecuteNonQuery();
+                }
+
                 // Seed default settings row if empty
                 cmd.CommandText = "SELECT COUNT(*) FROM settings;";
                 long count = (long)(cmd.ExecuteScalar() ?? 0);

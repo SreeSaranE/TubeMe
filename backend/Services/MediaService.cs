@@ -115,7 +115,7 @@ namespace YoutubeDownloader.Services
 
                     return new MediaVideoItem
                     {
-                        Id = GetMd5Hash(relPath),
+                        Id = GetMd5Hash(normRelPath),
                         Title = cleanTitle,
                         FileName = Path.GetFileName(filePath),
                         RelativePath = normRelPath,
