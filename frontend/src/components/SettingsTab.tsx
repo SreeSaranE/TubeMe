@@ -15,6 +15,13 @@ import {
 import { AppSettingsModel } from '@/types';
 import { api } from '@/services/api';
 import { useTheme, ThemeMode } from '@/context/ThemeContext';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface SettingsTabProps {
   settings: AppSettingsModel | null;
@@ -256,18 +263,26 @@ export function SettingsTab({ settings, onSettingsSaved }: SettingsTabProps) {
             <div className="space-y-4 text-sm">
               <div className="space-y-1.5">
                 <label className="font-medium text-[var(--text-primary)]">Default Resolution</label>
-                <select
-                  name="defaultResolution"
+                <Select
                   value={formData.defaultResolution}
-                  onChange={handleChange}
-                  className="w-full h-11 px-3.5 text-sm bg-[var(--bg-subtle)] border border-[var(--border)] rounded-[var(--radius-md)] text-[var(--text-primary)]"
+                  onValueChange={(value) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      defaultResolution: value,
+                    }))
+                  }
                 >
-                  <option value="1080">1080p Full HD</option>
-                  <option value="720">720p HD</option>
-                  <option value="4k">4K Ultra HD</option>
-                  <option value="best">Best Available Video</option>
-                  <option value="audio">Audio Only (MP3)</option>
-                </select>
+                  <SelectTrigger className="w-full h-11 px-3.5 text-sm bg-[var(--bg-subtle)] border border-[var(--border)] rounded-[var(--radius-md)] text-[var(--text-primary)]">
+                    <SelectValue placeholder="Select default resolution" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1080">1080p Full HD</SelectItem>
+                    <SelectItem value="720">720p HD</SelectItem>
+                    <SelectItem value="4k">4K Ultra HD</SelectItem>
+                    <SelectItem value="best">Best Available Video</SelectItem>
+                    <SelectItem value="audio">Audio Only (MP3)</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-1.5">
