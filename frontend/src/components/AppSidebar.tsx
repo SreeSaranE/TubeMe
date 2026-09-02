@@ -9,6 +9,7 @@ import {
   Video,
   History,
   ListVideo,
+  BarChart3,
 } from 'lucide-react';
 import {
   Sidebar,
@@ -19,7 +20,6 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarMenuBadge,
-  SidebarFooter,
   useSidebar,
 } from '@/components/ui/sidebar';
 
@@ -81,6 +81,11 @@ export function AppSidebar({ channelsCount, activeDownloadsCount }: AppSidebarPr
       badge: activeDownloadsCount > 0 ? activeDownloadsCount : undefined,
     },
     {
+      path: '/stats',
+      label: 'Statistics',
+      icon: BarChart3,
+    },
+    {
       path: '/settings',
       label: 'Settings',
       icon: Settings,
@@ -135,20 +140,6 @@ export function AppSidebar({ channelsCount, activeDownloadsCount }: AppSidebarPr
           </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>
-
-      {/* 3. Footer: Centered in minimized mode, aligned left when expanded */}
-      <SidebarFooter className={`shrink-0 h-14 flex items-center ${isCompact ? 'justify-center px-0' : 'px-4'}`}>
-        {isCompact ? (
-          <div className="status-chip connected compact" title="Engine Ready">
-            <span className="status-dot"></span>
-          </div>
-        ) : (
-          <div className="status-chip connected text-xs px-2.5 py-1 w-fit">
-            <span className="status-dot"></span>
-            <span>Engine Ready</span>
-          </div>
-        )}
-      </SidebarFooter>
     </Sidebar>
   );
 }

@@ -24,7 +24,13 @@ namespace YoutubeDownloader.Data.Repositories
 
             string normalizedRelPath = relativePath.Trim().Replace('\\', '/');
             string id = GetMd5Hash(normalizedRelPath);
-            bool isCompleted = (duration > 0 && (currentTime / duration) >= 0.95);
+            bool isCompleted = (duration > 0 && (currentTime / duration) >= 0.95) || currentTime >= 99999;
+
+            // Strictly only store in watch history if video is completed (>= 95%) or explicitly marked watched
+            if (!isCompleted)
+            {
+                return;
+            }
 
             lock (_lock)
             {
@@ -33,14 +39,14 @@ namespace YoutubeDownloader.Data.Repositories
 
                 cmd.CommandText = @"
                     INSERT INTO watch_history (id, relative_path, title, channel_name, current_time, duration, is_completed, last_watched_at)
-                    VALUES (@id, @relativePath, @title, @channelName, @currentTime, @duration, @isCompleted, datetime('now'))
+                    VALUES (@id, @relativePath, @title, @channelName, @currentTime, @duration, 1, datetime('now'))
                     ON CONFLICT(relative_path) DO UPDATE SET
                         id = @id,
                         current_time = @currentTime,
                         duration = CASE WHEN @duration > 0 THEN @duration ELSE duration END,
                         title = COALESCE(NULLIF(@title, ''), title),
                         channel_name = COALESCE(NULLIF(@channelName, ''), channel_name),
-                        is_completed = CASE WHEN is_completed = 1 OR @isCompleted = 1 THEN 1 ELSE 0 END,
+                        is_completed = 1,
                         last_watched_at = datetime('now');";
 
                 cmd.Parameters.AddWithValue("@id", id);
@@ -49,7 +55,6 @@ namespace YoutubeDownloader.Data.Repositories
                 cmd.Parameters.AddWithValue("@channelName", (object?)channelName ?? DBNull.Value);
                 cmd.Parameters.AddWithValue("@currentTime", currentTime);
                 cmd.Parameters.AddWithValue("@duration", duration);
-                cmd.Parameters.AddWithValue("@isCompleted", isCompleted ? 1 : 0);
 
                 cmd.ExecuteNonQuery();
             }
@@ -168,17 +173,60 @@ namespace YoutubeDownloader.Data.Repositories
 
         private static WatchHistoryItem MapFromReader(SqliteDataReader reader)
         {
+            double currentTime = 0;
+            try
+            {
+                if (!reader.IsDBNull(4))
+                {
+                    var val = reader.GetValue(4);
+                    if (val is double d) currentTime = d;
+                    else if (val is long l) currentTime = l;
+                    else if (double.TryParse(val.ToString(), out var parsed)) currentTime = parsed;
+                    else if (val is string s && s.Contains(':')) currentTime = ParseDurationStringToSeconds(s);
+                }
+            }
+            catch { }
+
+            double duration = 0;
+            try
+            {
+                if (!reader.IsDBNull(5))
+                {
+                    var val = reader.GetValue(5);
+                    if (val is double d) duration = d;
+                    else if (val is long l) duration = l;
+                    else if (double.TryParse(val.ToString(), out var parsed)) duration = parsed;
+                    else if (val is string s && s.Contains(':')) duration = ParseDurationStringToSeconds(s);
+                }
+            }
+            catch { }
+
             return new WatchHistoryItem
             {
                 Id = reader.GetString(0),
                 RelativePath = reader.GetString(1),
                 Title = reader.IsDBNull(2) ? string.Empty : reader.GetString(2),
                 ChannelName = reader.IsDBNull(3) ? string.Empty : reader.GetString(3),
-                CurrentTime = reader.GetDouble(4),
-                Duration = reader.GetDouble(5),
+                CurrentTime = currentTime,
+                Duration = duration,
                 IsCompleted = reader.GetInt32(6) == 1,
                 LastWatchedAt = DateTime.TryParse(reader.GetString(7), out var dt) ? dt : DateTime.UtcNow
             };
+        }
+
+        private static double ParseDurationStringToSeconds(string durationStr)
+        {
+            if (string.IsNullOrWhiteSpace(durationStr)) return 0;
+            var parts = durationStr.Split(':');
+            if (parts.Length == 2 && double.TryParse(parts[0], out var m) && double.TryParse(parts[1], out var s))
+            {
+                return (m * 60) + s;
+            }
+            if (parts.Length == 3 && double.TryParse(parts[0], out var h) && double.TryParse(parts[1], out var min) && double.TryParse(parts[2], out var sec))
+            {
+                return (h * 3600) + (min * 60) + sec;
+            }
+            return 0;
         }
 
         private static string GetMd5Hash(string input)

@@ -176,6 +176,10 @@ export const api = {
     fetch(`${API_BASE}/playlists/video-memberships?path=${encodeURIComponent(relativePath)}`).then((res) =>
       res.json()
     ),
+
+  // Statistics
+  getStatistics: (): Promise<import('@/types').AppStatisticsModel> =>
+    fetch(`${API_BASE}/statistics`).then((res) => res.json()),
 };
 
 export const createSignalRConnection = (): signalR.HubConnection => {

@@ -141,7 +141,7 @@ export function VideoPlayerTab() {
     }
   };
 
-  // Track playback time, reporting progress and marking complete at >= 95%
+  // Track playback time and mark complete strictly at >= 95%
   const handleTimeUpdate = () => {
     const el = videoRef.current;
     if (!el || !currentVideo) return;
@@ -166,63 +166,28 @@ export function VideoPlayerTab() {
       setVideos((prev) =>
         prev.map((v) =>
           v.relativePath === currentVideo.relativePath
-            ? { ...v, isCompleted: true, watchProgressPercentage: 100 }
+            ? { ...v, isCompleted: true }
             : v
         )
       );
-      lastReportedTimeRef.current = currentTime;
-      return;
-    }
-
-    // Periodic progress update every 5 seconds
-    if (Math.abs(currentTime - lastReportedTimeRef.current) >= 5) {
-      lastReportedTimeRef.current = currentTime;
-      api.updateWatchProgress({
-        relativePath: currentVideo.relativePath,
-        title: currentVideo.title,
-        channelName: currentVideo.channelName,
-        currentTime,
-        duration,
-      }).catch(console.error);
-
-      const pct = (currentTime / duration) * 100;
-      setVideos((prev) =>
-        prev.map((v) =>
-          v.relativePath === currentVideo.relativePath
-            ? { ...v, watchProgressSeconds: currentTime, watchProgressPercentage: pct }
-            : v
-        )
-      );
-    }
-  };
-
-  const handlePause = () => {
-    if (videoRef.current && currentVideo) {
-      api.updateWatchProgress({
-        relativePath: currentVideo.relativePath,
-        title: currentVideo.title,
-        channelName: currentVideo.channelName,
-        currentTime: videoRef.current.currentTime,
-        duration: videoRef.current.duration,
-      }).catch(console.error);
     }
   };
 
   const handleEnded = () => {
-    if (videoRef.current && currentVideo) {
+    if (videoRef.current && currentVideo && !isCompleted) {
       setIsCompleted(true);
       api.updateWatchProgress({
         relativePath: currentVideo.relativePath,
         title: currentVideo.title,
         channelName: currentVideo.channelName,
-        currentTime: videoRef.current.duration,
-        duration: videoRef.current.duration,
+        currentTime: videoRef.current.duration || 999999,
+        duration: videoRef.current.duration || 999999,
       }).catch(console.error);
 
       setVideos((prev) =>
         prev.map((v) =>
           v.relativePath === currentVideo.relativePath
-            ? { ...v, isCompleted: true, watchProgressPercentage: 100 }
+            ? { ...v, isCompleted: true }
             : v
         )
       );
@@ -303,7 +268,6 @@ export function VideoPlayerTab() {
               playsInline
               onLoadedMetadata={handleLoadedMetadata}
               onTimeUpdate={handleTimeUpdate}
-              onPause={handlePause}
               onEnded={handleEnded}
               className="w-full h-full object-contain"
             >

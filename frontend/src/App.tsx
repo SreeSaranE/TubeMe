@@ -11,6 +11,7 @@ import { HomeTab } from '@/components/HomeTab';
 import { VideoPlayerTab } from '@/components/VideoPlayerTab';
 import { HistoryTab } from '@/components/HistoryTab';
 import { PlaylistsTab } from '@/components/PlaylistsTab';
+import { StatisticsTab } from '@/components/StatisticsTab';
 import { SettingsTab } from '@/components/SettingsTab';
 import { api, createSignalRConnection } from '@/services/api';
 import {
@@ -208,7 +209,11 @@ function AppContent() {
             <Route path="/queue" element={<Navigate to="/downloads" replace />} />
             <Route path="/library" element={<Navigate to="/" replace />} />
 
-            {/* 6. Settings */}
+            {/* 6. Statistics */}
+            <Route path="/stats" element={<StatisticsTab />} />
+            <Route path="/statistics" element={<Navigate to="/stats" replace />} />
+
+            {/* 7. Settings */}
             <Route
               path="/settings"
               element={

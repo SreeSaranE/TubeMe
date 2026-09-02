@@ -183,3 +183,24 @@ export interface AddVideoToPlaylistRequest {
   thumbnailUrl?: string;
 }
 
+export interface ChannelWatchStatModel {
+  channelName: string;
+  avatarUrl?: string | null;
+  watchedCount: number;
+  totalVideosCount: number;
+  totalWatchTimeSeconds: number;
+  totalSizeBytes: number;
+}
+
+export interface AppStatisticsModel {
+  totalVideos: number;
+  totalChannels: number;
+  watchedVideosCount: number;
+  unwatchedVideosCount: number;
+  totalDiskSizeBytes: number;
+  totalWatchTimeSeconds: number;
+  totalPlaylistsCount: number;
+  topWatchedChannels: ChannelWatchStatModel[];
+  categoryDistribution: CategoryDetailModel[];
+}
+

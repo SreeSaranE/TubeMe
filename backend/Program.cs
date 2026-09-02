@@ -37,6 +37,7 @@ builder.Services.AddSingleton<ICategoryService, CategoryService>();
 builder.Services.AddSingleton<IMediaFileService, MediaFileService>();
 builder.Services.AddSingleton<IMediaService, MediaService>();
 builder.Services.AddSingleton<IPlaylistService, PlaylistService>();
+builder.Services.AddSingleton<IStatisticsService, StatisticsService>();
 
 // Register DownloadQueueService as Singleton, Interface implementation, and Background HostedService
 builder.Services.AddSingleton<DownloadQueueService>();
@@ -82,6 +83,7 @@ apiGroup.MapGroup("/downloads").MapDownloadEndpoints();
 apiGroup.MapGroup("/files").MapFileEndpoints();
 apiGroup.MapGroup("/media").MapMediaEndpoints();
 apiGroup.MapGroup("/history").MapHistoryEndpoints();
+apiGroup.MapGroup("/statistics").MapStatisticsEndpoints();
 apiGroup.MapGroup("/search").MapSearchEndpoints();
 apiGroup.MapGroup("/settings").MapSettingsEndpoints();
 

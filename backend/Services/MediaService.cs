@@ -102,15 +102,11 @@ namespace YoutubeDownloader.Services
 
                     string? duration = await GetOrExtractDurationAsync(filePath, fileInfo.LastWriteTimeUtc.Ticks);
 
-                    double? progressSec = null;
-                    double? progressPct = null;
                     bool isCompleted = false;
 
                     if (historyMap.TryGetValue(normRelPath, out var hist))
                     {
-                        progressSec = hist.CurrentTime;
-                        isCompleted = hist.IsCompleted || (hist.Duration > 0 && (hist.CurrentTime / hist.Duration) >= 0.95);
-                        progressPct = hist.Duration > 0 ? Math.Min(100.0, (hist.CurrentTime / hist.Duration) * 100.0) : 0;
+                        isCompleted = hist.IsCompleted;
                     }
 
                     return new MediaVideoItem
@@ -129,8 +125,6 @@ namespace YoutubeDownloader.Services
                         HasSubtitles = hasSubs,
                         SubtitleUrl = hasSubs ? $"/api/media/subtitles?path={encodedSubPath}" : null,
                         Duration = duration,
-                        WatchProgressSeconds = progressSec,
-                        WatchProgressPercentage = progressPct,
                         IsCompleted = isCompleted
                     };
                 }
@@ -334,8 +328,28 @@ namespace YoutubeDownloader.Services
         private static string GetMd5Hash(string input)
         {
             using var md5 = MD5.Create();
-            byte[] bytes = md5.ComputeHash(Encoding.UTF8.GetBytes(input.ToLowerInvariant()));
-            return Convert.ToHexString(bytes).ToLowerInvariant();
+            byte[] bytes = md5.ComputeHash(Encoding.UTF8.GetBytes(input));
+            var sb = new StringBuilder();
+            for (int i = 0; i < bytes.Length; i++)
+            {
+                sb.Append(bytes[i].ToString("x2"));
+            }
+            return sb.ToString();
+        }
+
+        private static double ParseDurationStringToSeconds(string durationStr)
+        {
+            if (string.IsNullOrWhiteSpace(durationStr)) return 0;
+            var parts = durationStr.Split(':');
+            if (parts.Length == 2 && double.TryParse(parts[0], out var m) && double.TryParse(parts[1], out var s))
+            {
+                return (m * 60) + s;
+            }
+            if (parts.Length == 3 && double.TryParse(parts[0], out var h) && double.TryParse(parts[1], out var min) && double.TryParse(parts[2], out var sec))
+            {
+                return (h * 3600) + (min * 60) + sec;
+            }
+            return 0;
         }
     }
 }

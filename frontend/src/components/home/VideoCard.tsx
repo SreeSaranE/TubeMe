@@ -88,16 +88,6 @@ export function VideoCard({
             </span>
           )}
         </div>
-
-        {/* Watch Progress Bar (Bottom Edge, YouTube Style) */}
-        {typeof video.watchProgressPercentage === 'number' && video.watchProgressPercentage > 0 && (
-          <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/60 overflow-hidden pointer-events-none">
-            <div
-              className="h-full bg-red-600 transition-all duration-300"
-              style={{ width: `${Math.min(100, video.isCompleted ? 100 : video.watchProgressPercentage)}%` }}
-            />
-          </div>
-        )}
       </div>
 
       {/* Video Info: Avatar, Title Block & 3-Dots Menu */}

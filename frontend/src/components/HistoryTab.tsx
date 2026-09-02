@@ -57,21 +57,27 @@ export function HistoryTab() {
       const items = await api.getWatchHistory();
       const allVideos = await api.getVideos();
 
-      // Filter videos that are completed
-      const historyMap = new Map(
-        items.map((i) => [i.relativePath.replace(/\\/g, '/').toLowerCase(), i.lastWatchedAt])
+      // Filter videos that are completed (>= 95% or isCompleted === true)
+      const completedHistoryItems = items.filter(
+        (i) => i.isCompleted || (i.duration > 0 && (i.currentTime / i.duration) >= 0.95)
+      );
+      const completedHistoryMap = new Map(
+        completedHistoryItems.map((i) => [
+          (i.relativePath || '').replace(/\\/g, '/').toLowerCase(),
+          i.lastWatchedAt,
+        ])
       );
       const completedVideos: WatchedVideoItem[] = allVideos
         .filter((v) => {
           const normKey = (v.relativePath || '').replace(/\\/g, '/').toLowerCase();
-          return v.isCompleted || historyMap.has(normKey);
+          return v.isCompleted || completedHistoryMap.has(normKey);
         })
         .map((v) => {
           const normKey = (v.relativePath || '').replace(/\\/g, '/').toLowerCase();
           return {
             ...v,
             isCompleted: true,
-            lastWatchedAt: historyMap.get(normKey) || v.lastModified,
+            lastWatchedAt: completedHistoryMap.get(normKey) || v.lastModified,
           };
         });
 

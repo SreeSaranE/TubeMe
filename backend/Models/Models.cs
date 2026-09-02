@@ -226,4 +226,27 @@ namespace YoutubeDownloader.Models
         public string? Duration { get; set; }
         public string? ThumbnailUrl { get; set; }
     }
+
+    public class ChannelWatchStatModel
+    {
+        public string ChannelName { get; set; } = string.Empty;
+        public string? AvatarUrl { get; set; }
+        public int WatchedCount { get; set; }
+        public int TotalVideosCount { get; set; }
+        public double TotalWatchTimeSeconds { get; set; }
+        public long TotalSizeBytes { get; set; }
+    }
+
+    public class AppStatisticsModel
+    {
+        public int TotalVideos { get; set; }
+        public int TotalChannels { get; set; }
+        public int WatchedVideosCount { get; set; }
+        public int UnwatchedVideosCount { get; set; }
+        public long TotalDiskSizeBytes { get; set; }
+        public double TotalWatchTimeSeconds { get; set; }
+        public int TotalPlaylistsCount { get; set; }
+        public List<ChannelWatchStatModel> TopWatchedChannels { get; set; } = new();
+        public List<CategoryDetailModel> CategoryDistribution { get; set; } = new();
+    }
 }
