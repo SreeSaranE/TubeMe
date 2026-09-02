@@ -131,14 +131,14 @@ namespace YoutubeDownloader.Data
                         channel_name TEXT,
                         current_time REAL NOT NULL DEFAULT 0,
                         duration REAL NOT NULL DEFAULT 0,
-                        is_completed INTEGER NOT NULL DEFAULT 0,
+                        is_completed INTEGER NOT NULL DEFAULT 1,
                         last_watched_at TEXT NOT NULL
                     );
                     CREATE INDEX IF NOT EXISTS idx_watch_history_last_watched ON watch_history(last_watched_at DESC);";
                 cmd.ExecuteNonQuery();
 
-                // Ensure is_completed is strictly 1 only if duration > 0 and (current_time / duration) >= 0.95 (or marked completed with huge current_time)
-                cmd.CommandText = "UPDATE watch_history SET is_completed = 0 WHERE duration > 0 AND (current_time / duration) < 0.95;";
+                // Ensure all records in watch_history table have is_completed = 1
+                cmd.CommandText = "UPDATE watch_history SET is_completed = 1 WHERE is_completed = 0;";
                 cmd.ExecuteNonQuery();
 
                 // 5. Playlists Table

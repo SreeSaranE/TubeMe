@@ -209,7 +209,7 @@ namespace YoutubeDownloader.Data.Repositories
                 ChannelName = reader.IsDBNull(3) ? string.Empty : reader.GetString(3),
                 CurrentTime = currentTime,
                 Duration = duration,
-                IsCompleted = reader.GetInt32(6) == 1,
+                IsCompleted = true,
                 LastWatchedAt = DateTime.TryParse(reader.GetString(7), out var dt) ? dt : DateTime.UtcNow
             };
         }

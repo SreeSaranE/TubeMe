@@ -50,6 +50,8 @@ export function HistoryTab() {
   // Deletion modal state
   const [videoToDelete, setVideoToDelete] = useState<WatchedVideoItem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [historyItemToRemove, setHistoryItemToRemove] = useState<WatchedVideoItem | null>(null);
+  const [isRemovingHistory, setIsRemovingHistory] = useState(false);
 
   const loadHistory = async () => {
     setIsLoading(true);
@@ -120,20 +122,24 @@ export function HistoryTab() {
     }
   };
 
-  const handleRemoveHistory = async (video: WatchedVideoItem) => {
+  const confirmRemoveHistory = async () => {
+    if (!historyItemToRemove) return;
+    const target = historyItemToRemove;
+    setIsRemovingHistory(true);
     try {
-      const target = video.relativePath || video.id;
-      if (target) {
-        const res = await api.deleteWatchHistory(target);
+      const targetPath = target.relativePath || target.id;
+      if (targetPath) {
+        const res = await api.deleteWatchHistory(targetPath);
         if (!res.ok) {
           throw new Error('Failed to remove from watch history');
         }
       }
-      setWatchedVideos((prev) => prev.filter((v) => v.relativePath !== video.relativePath));
+      setWatchedVideos((prev) => prev.filter((v) => v.relativePath !== target.relativePath));
+      setHistoryItemToRemove(null);
       toast({
         variant: 'success',
         title: 'Removed from history',
-        description: `"${video.title}" removed from watch history.`,
+        description: `"${target.title}" removed from watch history.`,
       });
     } catch (err) {
       console.error('Failed to remove history item:', err);
@@ -142,6 +148,8 @@ export function HistoryTab() {
         title: 'Error',
         description: 'Failed to remove from watch history.',
       });
+    } finally {
+      setIsRemovingHistory(false);
     }
   };
 
@@ -397,12 +405,41 @@ export function HistoryTab() {
               key={video.id}
               video={video}
               onClick={() => navigate(`/watch?path=${encodeURIComponent(video.relativePath)}`)}
-              onRemoveFromHistory={handleRemoveHistory}
+              onRemoveFromHistory={(v) => setHistoryItemToRemove(v)}
               onDeleteFromDevice={(v) => setVideoToDelete(v)}
             />
           ))}
         </div>
       )}
+
+      {/* Remove from History Confirmation Alert Dialog */}
+      <AlertDialog open={Boolean(historyItemToRemove)} onOpenChange={(open) => !open && setHistoryItemToRemove(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-amber-600">
+              <AlertTriangle className="h-5 w-5 shrink-0" />
+              Remove from Watch History?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove <strong>"{historyItemToRemove?.title}"</strong> from your watch history? It will be moved back to your unwatched videos on the Home page.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isRemovingHistory}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                confirmRemoveHistory();
+              }}
+              disabled={isRemovingHistory}
+              className="bg-amber-600 text-white hover:bg-amber-700 font-medium cursor-pointer"
+            >
+              {isRemovingHistory ? 'Removing...' : 'Remove from History'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Delete Video Confirmation Alert Dialog */}
       <AlertDialog open={Boolean(videoToDelete)} onOpenChange={(open) => !open && setVideoToDelete(null)}>
@@ -427,7 +464,7 @@ export function HistoryTab() {
                 confirmDeleteVideo();
               }}
               disabled={isDeleting}
-              className="bg-rose-600 text-white hover:bg-rose-700 font-medium"
+              className="bg-rose-600 text-white hover:bg-rose-700 font-medium cursor-pointer"
             >
               {isDeleting ? 'Deleting...' : 'Delete Permanently'}
             </AlertDialogAction>
@@ -456,7 +493,7 @@ export function HistoryTab() {
                 handleClearAll();
               }}
               disabled={isClearing}
-              className="bg-rose-600 text-white hover:bg-rose-700 font-medium"
+              className="bg-rose-600 text-white hover:bg-rose-700 font-medium cursor-pointer"
             >
               {isClearing ? 'Clearing...' : 'Clear All'}
             </AlertDialogAction>

@@ -38,6 +38,11 @@ namespace YoutubeDownloader.Services
             var playlists = _playlistRepository.GetAllPlaylists();
             var categories = _categoryRepository.GetAllWithCount();
 
+            var historyMap = historyList
+                .Where(h => !string.IsNullOrWhiteSpace(h.RelativePath))
+                .GroupBy(h => h.RelativePath.Trim().Replace('\\', '/'), StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
             int totalVideos = videos.Count;
             int totalChannels = channels.Count;
             int watchedVideosCount = videos.Count(v => v.IsCompleted);
@@ -45,7 +50,7 @@ namespace YoutubeDownloader.Services
             long totalDiskSizeBytes = videos.Sum(v => v.Size);
             int totalPlaylistsCount = playlists.Count;
 
-            // Channel lookup map (by lowercase name)
+            // Channel lookup map (by trimmed name)
             var channelMap = channels
                 .Where(c => !string.IsNullOrWhiteSpace(c.Name))
                 .GroupBy(c => c.Name.Trim(), StringComparer.OrdinalIgnoreCase)
@@ -58,33 +63,32 @@ namespace YoutubeDownloader.Services
             // Compute watch time from all media videos
             foreach (var video in videos)
             {
-                double videoDurationSeconds = ParseDurationStringToSeconds(video.Duration);
-                double watchSeconds = 0;
-
                 if (video.IsCompleted)
                 {
-                    // Completed video contributes its full duration
-                    watchSeconds = videoDurationSeconds > 0 ? videoDurationSeconds : (video.WatchProgressSeconds ?? 0);
-                }
-                else if (video.WatchProgressSeconds.HasValue && video.WatchProgressSeconds.Value > 0)
-                {
-                    // Partially watched video contributes its actual progress seconds
-                    watchSeconds = video.WatchProgressSeconds.Value;
-                    if (videoDurationSeconds > 0 && watchSeconds > videoDurationSeconds)
-                    {
-                        watchSeconds = videoDurationSeconds;
-                    }
-                }
+                    double durSec = ParseDurationStringToSeconds(video.Duration);
 
-                if (watchSeconds > 0)
-                {
-                    totalWatchTimeSeconds += watchSeconds;
+                    // If duration string is missing or 0, check history list
+                    if (durSec <= 0 && historyMap.TryGetValue(video.RelativePath, out var histItem))
+                    {
+                        if (histItem.Duration > 0 && histItem.Duration < 999990)
+                        {
+                            durSec = histItem.Duration;
+                        }
+                    }
+
+                    // Fallback to reasonable estimate (~10 mins) if no metadata could be extracted
+                    if (durSec <= 0)
+                    {
+                        durSec = 600;
+                    }
+
+                    totalWatchTimeSeconds += durSec;
                     string chName = (video.ChannelName ?? "Local Media").Trim();
                     if (!channelWatchTimes.ContainsKey(chName))
                     {
                         channelWatchTimes[chName] = 0;
                     }
-                    channelWatchTimes[chName] += watchSeconds;
+                    channelWatchTimes[chName] += durSec;
                 }
             }
 
@@ -116,7 +120,7 @@ namespace YoutubeDownloader.Services
                 });
             }
 
-            // Also check any channel that had watch history
+            // Also check any channel that has history but no currently loaded videos
             foreach (var kvp in channelWatchTimes)
             {
                 if (!channelStatsList.Any(cs => cs.ChannelName.Equals(kvp.Key, StringComparison.OrdinalIgnoreCase)))

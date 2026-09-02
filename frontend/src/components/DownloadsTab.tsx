@@ -3,6 +3,7 @@ import {
   Download,
   Check,
   AlertCircle,
+  AlertTriangle,
   X,
   Clock,
   Terminal,
@@ -12,6 +13,16 @@ import {
 } from 'lucide-react';
 import { DownloadItem } from '@/types';
 import { Link } from 'react-router-dom';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface DownloadsTabProps {
   downloads: DownloadItem[];
@@ -22,6 +33,12 @@ interface DownloadsTabProps {
 export function DownloadsTab({ downloads, onCancelDownload, onClearHistory }: DownloadsTabProps) {
   const [activeLogItem, setActiveLogItem] = useState<DownloadItem | null>(null);
   const [filter, setFilter] = useState<'all' | 'active' | 'completed' | 'failed'>('all');
+
+  // Confirmation modal states
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
+  const [downloadToCancel, setDownloadToCancel] = useState<DownloadItem | null>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
 
   const filteredDownloads = downloads.filter((d) => {
     if (filter === 'active') return d.status === 'Downloading' || d.status === 'Queued';
@@ -50,6 +67,31 @@ export function DownloadsTab({ downloads, onCancelDownload, onClearHistory }: Do
   const activeCount = downloads.filter((d) => d.status === 'Downloading' || d.status === 'Queued').length;
   const completedCount = downloads.filter((d) => d.status === 'Completed').length;
   const failedCount = downloads.filter((d) => d.status === 'Failed' || d.status === 'Cancelled').length;
+
+  const handleConfirmClearHistory = async () => {
+    setIsClearing(true);
+    try {
+      await onClearHistory();
+      setShowClearConfirm(false);
+    } catch (err) {
+      console.error('Failed to clear download history:', err);
+    } finally {
+      setIsClearing(false);
+    }
+  };
+
+  const handleConfirmCancelDownload = async () => {
+    if (!downloadToCancel) return;
+    setIsCancelling(true);
+    try {
+      await onCancelDownload(downloadToCancel.id);
+      setDownloadToCancel(null);
+    } catch (err) {
+      console.error('Failed to cancel download:', err);
+    } finally {
+      setIsCancelling(false);
+    }
+  };
 
   const renderStatusChip = (status: string) => {
     switch (status) {
@@ -112,8 +154,8 @@ export function DownloadsTab({ downloads, onCancelDownload, onClearHistory }: Do
           {downloads.length > 0 && (
             <button
               type="button"
-              onClick={onClearHistory}
-              className="btn btn-secondary text-xs sm:text-sm h-9 px-3.5 font-medium flex items-center gap-2"
+              onClick={() => setShowClearConfirm(true)}
+              className="btn btn-secondary text-xs sm:text-sm h-9 px-3.5 font-medium flex items-center gap-2 cursor-pointer"
               title="Clear completed and failed tasks"
             >
               <Trash2 className="h-4 w-4" />
@@ -179,31 +221,6 @@ export function DownloadsTab({ downloads, onCancelDownload, onClearHistory }: Do
             <p>
               No active or past downloads in this session. Start a download from the Search tab or sync your channels.
             </p>
-            <div className="mt-6 flex justify-center">
-              <Link to="/search" className="btn btn-primary h-11 px-6 text-sm font-bold">
-                <Download className="h-4 w-4 mr-2" />
-                Go to Downloader
-              </Link>
-            </div>
-          </div>
-        </div>
-      ) : filteredDownloads.length === 0 ? (
-        <div className="placeholder-view">
-          <div className="placeholder-box">
-            <div className="placeholder-icon">
-              <Layers className="h-8 w-8" />
-            </div>
-            <h2>No {filter} items</h2>
-            <p>No download tasks currently match the "{filter}" filter.</p>
-            <div className="mt-5 flex justify-center">
-              <button
-                type="button"
-                onClick={() => setFilter('all')}
-                className="btn btn-secondary text-sm"
-              >
-                View All Tasks
-              </button>
-            </div>
           </div>
         </div>
       ) : (
@@ -215,7 +232,11 @@ export function DownloadsTab({ downloads, onCancelDownload, onClearHistory }: Do
             return (
               <div
                 key={item.id}
-                className="card p-6 space-y-4 hover:border-[var(--border-strong)] transition-colors"
+                className={`card p-5 space-y-4 border transition-all ${
+                  isRunning
+                    ? 'border-[var(--primary)] shadow-sm'
+                    : 'border-[var(--border)] hover:border-[var(--border-strong)]'
+                }`}
               >
                 {/* Header Row */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -234,11 +255,11 @@ export function DownloadsTab({ downloads, onCancelDownload, onClearHistory }: Do
                   <div className="flex items-center gap-2.5 shrink-0 self-start sm:self-auto">
                     {renderStatusChip(item.status)}
 
-                    {isRunning && (
+                    {(isRunning || isQueued) && (
                       <button
                         type="button"
-                        onClick={() => onCancelDownload(item.id)}
-                        className="btn btn-secondary text-xs h-8 px-3 font-semibold hover:text-[var(--danger)]"
+                        onClick={() => setDownloadToCancel(item)}
+                        className="btn btn-secondary text-xs h-8 px-3 font-semibold hover:text-[var(--danger)] cursor-pointer"
                         title="Cancel download"
                       >
                         <StopCircle className="h-3.5 w-3.5 mr-1" />
@@ -249,7 +270,7 @@ export function DownloadsTab({ downloads, onCancelDownload, onClearHistory }: Do
                     <button
                       type="button"
                       onClick={() => setActiveLogItem(item)}
-                      className="btn-icon h-8 w-8 flex items-center justify-center"
+                      className="btn-icon h-8 w-8 flex items-center justify-center cursor-pointer"
                       title="View execution logs"
                     >
                       <Terminal className="h-4 w-4" />
@@ -278,25 +299,31 @@ export function DownloadsTab({ downloads, onCancelDownload, onClearHistory }: Do
                         className={`h-full transition-all duration-200 ${
                           item.status === 'Completed'
                             ? 'bg-[var(--success)]'
-                            : 'bg-[var(--primary)]'
+                            : isRunning
+                            ? 'bg-[var(--primary)]'
+                            : 'bg-[var(--border-strong)]'
                         }`}
                         style={{
-                          width: `${item.status === 'Completed' ? 100 : item.progressPercentage || 0}%`,
+                          width: `${
+                            item.status === 'Completed'
+                              ? 100
+                              : Math.min(100, Math.max(0, item.progressPercentage || 0))
+                          }%`,
                         }}
                       />
                     </div>
 
-                    <div className="flex items-center justify-between text-xs font-mono text-[var(--text-muted)]">
-                      <span className="font-bold text-[var(--text-primary)]">
+                    <div className="flex items-center justify-between text-xs font-mono text-[var(--text-secondary)]">
+                      <span>
                         {item.status === 'Completed'
-                          ? '100%'
+                          ? '100% finished'
                           : `${(item.progressPercentage || 0).toFixed(1)}%`}
                       </span>
 
                       {isRunning && (
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-3">
                           {item.downloadSpeed && (
-                            <span className="text-[var(--text-primary)] font-bold">
+                            <span className="text-[var(--text-primary)] font-semibold">
                               {item.downloadSpeed}
                             </span>
                           )}
@@ -333,7 +360,7 @@ export function DownloadsTab({ downloads, onCancelDownload, onClearHistory }: Do
               <button
                 type="button"
                 onClick={() => setActiveLogItem(null)}
-                className="p-1.5 rounded text-[#a1a1aa] hover:text-white"
+                className="p-1.5 rounded text-[#a1a1aa] hover:text-white cursor-pointer"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -355,7 +382,7 @@ export function DownloadsTab({ downloads, onCancelDownload, onClearHistory }: Do
               <button
                 type="button"
                 onClick={() => setActiveLogItem(null)}
-                className="btn text-sm h-9 px-5 bg-[#27272a] text-white hover:bg-[#3f3f46]"
+                className="btn text-sm h-9 px-5 bg-[#27272a] text-white hover:bg-[#3f3f46] cursor-pointer"
               >
                 Close Logs
               </button>
@@ -363,6 +390,64 @@ export function DownloadsTab({ downloads, onCancelDownload, onClearHistory }: Do
           </div>
         </div>
       )}
+
+      {/* 5. Clear History Confirmation Alert Dialog */}
+      <AlertDialog open={showClearConfirm} onOpenChange={setShowClearConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-rose-600">
+              <AlertTriangle className="h-5 w-5 shrink-0" />
+              Clear Queue History?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to clear completed and failed downloads from the queue? Any media files already downloaded to disk will remain untouched.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isClearing}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleConfirmClearHistory();
+              }}
+              disabled={isClearing}
+              className="bg-rose-600 text-white hover:bg-rose-700 font-medium cursor-pointer"
+            >
+              {isClearing ? 'Clearing...' : 'Clear History'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* 6. Cancel Download Confirmation Alert Dialog */}
+      <AlertDialog open={Boolean(downloadToCancel)} onOpenChange={(open) => !open && setDownloadToCancel(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-amber-600">
+              <AlertTriangle className="h-5 w-5 shrink-0" />
+              Cancel Download?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to cancel the download for <strong>"{downloadToCancel?.title}"</strong>? The current download process will be stopped immediately.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isCancelling}>Keep Downloading</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleConfirmCancelDownload();
+              }}
+              disabled={isCancelling}
+              className="bg-amber-600 text-white hover:bg-amber-700 font-medium cursor-pointer"
+            >
+              {isCancelling ? 'Cancelling...' : 'Cancel Download'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

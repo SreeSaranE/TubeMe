@@ -59,6 +59,9 @@ export function PlaylistsTab() {
   const [playlistToDelete, setPlaylistToDelete] = useState<PlaylistModel | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  const [videoToRemove, setVideoToRemove] = useState<PlaylistVideoItem | null>(null);
+  const [isRemovingVideo, setIsRemovingVideo] = useState(false);
+
   const selectedPlaylistId = searchParams.get('id');
 
   const enrichPlaylistVideos = (detail: PlaylistDetailModel, historyItems: WatchHistoryItem[]): PlaylistDetailModel => {
@@ -260,26 +263,29 @@ export function PlaylistsTab() {
   };
 
   // Remove Video from Playlist
-  const handleRemoveVideoFromPlaylist = async (video: PlaylistVideoItem) => {
-    if (!activePlaylist) return;
+  const confirmRemoveVideoFromPlaylist = async () => {
+    if (!activePlaylist || !videoToRemove) return;
+    const target = videoToRemove;
+    setIsRemovingVideo(true);
 
     try {
-      const res = await api.removeVideoFromPlaylist(activePlaylist.id, video.relativePath);
+      const res = await api.removeVideoFromPlaylist(activePlaylist.id, target.relativePath);
       if (res.ok) {
         setActivePlaylist((prev) =>
           prev
             ? {
                 ...prev,
                 videoCount: Math.max(0, prev.videoCount - 1),
-                videos: prev.videos.filter((v) => v.relativePath !== video.relativePath),
+                videos: prev.videos.filter((v) => v.relativePath !== target.relativePath),
               }
             : null
         );
         toast({
           variant: 'success',
           title: 'Video removed',
-          description: `Removed "${video.videoTitle}" from playlist.`,
+          description: `Removed "${target.videoTitle}" from playlist.`,
         });
+        setVideoToRemove(null);
         // Also update the background list count
         setPlaylists((prev) =>
           prev.map((p) =>
@@ -296,6 +302,8 @@ export function PlaylistsTab() {
         title: 'Error',
         description: 'Failed to remove video from playlist.',
       });
+    } finally {
+      setIsRemovingVideo(false);
     }
   };
 
@@ -565,7 +573,7 @@ export function PlaylistsTab() {
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleRemoveVideoFromPlaylist(item);
+                        setVideoToRemove(item);
                       }}
                       className="p-1.5 rounded-[var(--radius-sm)] text-[var(--text-muted)] hover:text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer shrink-0 mt-0.5"
                       title="Remove from this playlist"
@@ -859,9 +867,38 @@ export function PlaylistsTab() {
                 confirmDeletePlaylist();
               }}
               disabled={isDeleting}
-              className="bg-rose-600 text-white hover:bg-rose-700 font-medium"
+              className="bg-rose-600 text-white hover:bg-rose-700 font-medium cursor-pointer"
             >
               {isDeleting ? 'Deleting...' : 'Delete Playlist'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Remove Video from Playlist Confirmation Alert Dialog */}
+      <AlertDialog open={Boolean(videoToRemove)} onOpenChange={(open) => !open && setVideoToRemove(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-amber-600">
+              <AlertTriangle className="h-5 w-5 shrink-0" />
+              Remove Video from Playlist?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove <strong>"{videoToRemove?.videoTitle}"</strong> from playlist <strong>"{activePlaylist?.name}"</strong>? The video file will remain stored on your device.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isRemovingVideo}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                confirmRemoveVideoFromPlaylist();
+              }}
+              disabled={isRemovingVideo}
+              className="bg-amber-600 text-white hover:bg-amber-700 font-medium cursor-pointer"
+            >
+              {isRemovingVideo ? 'Removing...' : 'Remove from Playlist'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
