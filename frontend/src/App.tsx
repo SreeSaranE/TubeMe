@@ -164,17 +164,19 @@ function AppContent() {
         />
 
         <main
-          className={`flex-1 min-w-0 w-full px-4 pt-6 sm:px-6 sm:pt-8 lg:px-8 lg:pt-8 ${
+          className={`flex-1 min-w-0 w-full ${
             isWatchPage
-              ? 'h-full overflow-y-auto lg:overflow-hidden flex flex-col pb-6 sm:pb-8 lg:pb-8'
+              ? 'h-full overflow-y-auto flex flex-col p-0 sm:px-4 sm:pt-4 lg:px-6 lg:pt-6 xl:px-8 xl:pt-8 pb-6 sm:pb-8'
               : currentVideo
-              ? 'h-full overflow-y-auto pb-28 sm:pb-28'
-              : 'h-full overflow-y-auto pb-6 sm:pb-8 lg:pb-8'
+              ? 'h-full overflow-y-auto px-4 pt-6 sm:px-6 sm:pt-8 lg:px-8 lg:pt-8 pb-28 sm:pb-28'
+              : 'h-full overflow-y-auto px-4 pt-6 sm:px-6 sm:pt-8 lg:px-8 lg:pt-8 pb-6 sm:pb-8 lg:pb-8'
           }`}
         >
-          <div className="md:hidden mb-3 shrink-0">
-            <SidebarTrigger />
-          </div>
+          {!isWatchPage && (
+            <div className="md:hidden mb-2 shrink-0 px-4 pt-2">
+              <SidebarTrigger />
+            </div>
+          )}
           <Suspense fallback={<RouteLoadingFallback />}>
             <Routes>
               {/* 1. Home Feed (YouTube-style video library grid) */}
