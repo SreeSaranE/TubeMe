@@ -23,6 +23,7 @@ namespace YoutubeDownloader.Services
         private readonly ISettingsService _settingsService;
         private readonly IChannelService _channelService;
         private readonly IYtDlpService _ytDlpService;
+        private readonly IMediaService _mediaService;
         private readonly IHubContext<DownloadHub> _hubContext;
 
         public DownloadQueueService(
@@ -30,12 +31,14 @@ namespace YoutubeDownloader.Services
             ISettingsService settingsService,
             IChannelService channelService,
             IYtDlpService ytDlpService,
+            IMediaService mediaService,
             IHubContext<DownloadHub> hubContext)
         {
             _downloadRepository = downloadRepository;
             _settingsService = settingsService;
             _channelService = channelService;
             _ytDlpService = ytDlpService;
+            _mediaService = mediaService;
             _hubContext = hubContext;
 
             // Load existing downloads from repository
@@ -235,6 +238,15 @@ namespace YoutubeDownloader.Services
                                 {
                                     _channelService.UpdateLastSynced(ch.Id);
                                 }
+                            }
+
+                            if (item.Status == "Completed")
+                            {
+                                try
+                                {
+                                    _mediaService.InvalidateCache();
+                                }
+                                catch { }
                             }
 
                             _downloadRepository.Save(item);

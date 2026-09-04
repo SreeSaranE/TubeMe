@@ -90,6 +90,7 @@ export function VideoPlayerTab() {
   } = usePlayer();
 
   const [videos, setVideos] = useState<MediaVideoItem[]>([]);
+  const [playlist, setPlaylist] = useState<import('@/types').PlaylistDetailModel | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showDetailsPopover, setShowDetailsPopover] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -98,41 +99,102 @@ export function VideoPlayerTab() {
   const [podcastScrubValue, setPodcastScrubValue] = useState(0);
 
   const currentPath = searchParams.get('path') || '';
+  const playlistId = searchParams.get('playlistId') || '';
 
-  // Load all videos for playlist / recommendations sidebar
+  // Load videos and optional playlist details
   useEffect(() => {
-    const fetchVideos = async () => {
+    const fetchVideosAndPlaylist = async () => {
       setIsLoading(true);
       try {
-        const list = await api.getVideos();
+        const [list, playlistData] = await Promise.all([
+          api.getVideos(),
+          playlistId ? api.getPlaylist(playlistId).catch(() => null) : Promise.resolve(null),
+        ]);
         setVideos(list || []);
-        if (!currentPath && list.length > 0) {
-          setSearchParams({ path: list[0].relativePath });
+        setPlaylist(playlistData);
+
+        if (!currentPath && list && list.length > 0) {
+          const firstPath = playlistData && playlistData.videos.length > 0
+            ? playlistData.videos[0].relativePath
+            : list[0].relativePath;
+          const nextParams: { path: string; playlistId?: string } = { path: firstPath };
+          if (playlistId) nextParams.playlistId = playlistId;
+          setSearchParams(nextParams);
         }
       } catch (err) {
-        console.error('Failed to load videos:', err);
+        console.error('Failed to load videos or playlist:', err);
       } finally {
         setIsLoading(false);
       }
     };
-    fetchVideos();
-  }, []);
+    fetchVideosAndPlaylist();
+  }, [playlistId]);
 
   const currentVideo = videos.find((v) => v.relativePath === currentPath) || null;
 
-  // Up next videos (excluding current video and completely watched videos)
-  const upNextVideos = videos.filter(
-    (v) => v.relativePath !== currentPath && !v.isCompleted
-  );
+  // Compute upNextVideos: if in a playlist, use only the playlist's videos in sequential order after current video
+  const upNextVideos = React.useMemo(() => {
+    if (playlist && playlist.videos.length > 0) {
+      const videoMap = new Map(videos.map((v) => [v.relativePath.toLowerCase(), v]));
+      const currentIndex = playlist.videos.findIndex(
+        (pv) => pv.relativePath.toLowerCase() === currentPath.toLowerCase()
+      );
+
+      // Remaining videos after the current video in the playlist
+      const subsequentVideos = currentIndex >= 0
+        ? playlist.videos.slice(currentIndex + 1)
+        : playlist.videos.filter((pv) => pv.relativePath.toLowerCase() !== currentPath.toLowerCase());
+
+      return subsequentVideos
+        .map((pv) => {
+          const matched = videoMap.get(pv.relativePath.toLowerCase());
+          if (matched) return matched;
+          return {
+            id: pv.id,
+            title: pv.videoTitle,
+            fileName: pv.videoTitle,
+            relativePath: pv.relativePath,
+            channelName: pv.channelName,
+            channelAvatarUrl: null,
+            size: 0,
+            lastModified: pv.addedAt,
+            thumbnailUrl: pv.thumbnailUrl || `/api/media/thumbnail?path=${encodeURIComponent(pv.relativePath)}`,
+            streamUrl: `/api/media/stream?path=${encodeURIComponent(pv.relativePath)}`,
+            hasSubtitles: false,
+            subtitleUrl: null,
+            format: 'MP4',
+            duration: pv.duration || null,
+            isCompleted: pv.isCompleted,
+          } as MediaVideoItem;
+        })
+        .filter(Boolean);
+    }
+
+    // Default: General downloads excluding current video and watched videos
+    return videos.filter(
+      (v) => v.relativePath !== currentPath && !v.isCompleted
+    );
+  }, [playlist, videos, currentPath]);
 
   // Sync playback when currentVideo is selected or changed
   useEffect(() => {
     if (currentVideo) {
       if (!playerVideo || playerVideo.relativePath !== currentVideo.relativePath) {
-        playVideo(currentVideo, upNextVideos);
+        playVideo(currentVideo, upNextVideos, playlistId || null);
       }
     }
-  }, [currentVideo?.relativePath]);
+  }, [currentVideo?.relativePath, upNextVideos, playlistId]);
+
+  // Synchronize URL search params when global player auto-advances (e.g. video ended or next clicked)
+  useEffect(() => {
+    if (playerVideo && playerVideo.relativePath && playerVideo.relativePath !== currentPath) {
+      const nextParams: { path: string; playlistId?: string } = { path: playerVideo.relativePath };
+      if (playlistId) {
+        nextParams.playlistId = playlistId;
+      }
+      setSearchParams(nextParams);
+    }
+  }, [playerVideo?.relativePath]);
 
   // Mount persistent video into cinema container when active and not in audio-only mode
   useEffect(() => {
@@ -265,22 +327,28 @@ export function VideoPlayerTab() {
       {/* 1. Header Row: Responsive layout */}
       <div className="shrink-0 pt-1 pb-3">
         <div className="flex lg:grid lg:grid-cols-12 gap-6 items-center">
-          {/* Left: Back to Home Button */}
+          {/* Left: Back to Home / Back to Playlist Button */}
           <div className="lg:col-span-8 flex items-center justify-between">
             <button
               type="button"
-              onClick={() => navigate('/')}
+              onClick={() => {
+                if (playlistId) {
+                  navigate(`/playlists?id=${encodeURIComponent(playlistId)}`);
+                } else {
+                  navigate('/');
+                }
+              }}
               className="btn btn-secondary text-xs sm:text-sm h-9 px-3.5 font-medium flex items-center gap-1.5 cursor-pointer"
             >
               <ArrowLeft className="h-4 w-4" />
-              <span>Back to Home</span>
+              <span>{playlist ? `Back to ${playlist.name}` : 'Back to Home'}</span>
             </button>
           </div>
 
           {/* Right (Desktop only): Up Next Header aligned in horizontal row */}
           <div className="hidden lg:flex lg:col-span-4 items-center justify-between pb-1.5 border-b border-[var(--border)]">
-            <h3 className="font-semibold text-sm sm:text-base text-[var(--text-primary)]">
-              Up Next ({upNextVideos.length})
+            <h3 className="font-semibold text-sm sm:text-base text-[var(--text-primary)] truncate">
+              {playlist ? `Up Next • ${playlist.name} (${upNextVideos.length})` : `Up Next (${upNextVideos.length})`}
             </h3>
           </div>
         </div>
@@ -692,14 +760,14 @@ export function VideoPlayerTab() {
         {/* Right Column: Suggested Videos Sidebar */}
         <div className="lg:col-span-4 flex flex-col min-h-0 lg:h-full lg:overflow-hidden w-full mt-2 lg:mt-0">
           <div className="lg:hidden flex items-center justify-between pb-2 mb-3 border-b border-[var(--border)]">
-            <h3 className="font-semibold text-sm sm:text-base text-[var(--text-primary)]">
-              Up Next ({upNextVideos.length})
+            <h3 className="font-semibold text-sm sm:text-base text-[var(--text-primary)] truncate">
+              {playlist ? `Up Next • ${playlist.name} (${upNextVideos.length})` : `Up Next (${upNextVideos.length})`}
             </h3>
           </div>
 
           {upNextVideos.length === 0 ? (
             <div className="card p-6 text-center text-xs text-[var(--text-muted)]">
-              No other downloaded videos available.
+              {playlist ? 'No more videos in this playlist.' : 'No other downloaded videos available.'}
             </div>
           ) : (
             <div className="flex-1 lg:overflow-y-auto space-y-2.5 pr-0 lg:pr-1.5 scrollbar-thin">
@@ -707,7 +775,9 @@ export function VideoPlayerTab() {
                 <div
                   key={item.id}
                   onClick={() => {
-                    setSearchParams({ path: item.relativePath });
+                    const nextParams: { path: string; playlistId?: string } = { path: item.relativePath };
+                    if (playlistId) nextParams.playlistId = playlistId;
+                    setSearchParams(nextParams);
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
                   className="group flex gap-3 p-2 rounded-[var(--radius-md)] hover:bg-[var(--bg-subtle)] active:bg-[var(--bg-subtle)] transition-colors cursor-pointer"

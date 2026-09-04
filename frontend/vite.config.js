@@ -28,6 +28,31 @@ export default defineConfig({
   },
   build: {
     outDir: '../backend/wwwroot',
-    emptyOutDir: true
-  }
+    emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (
+              id.includes('react') ||
+              id.includes('react-dom') ||
+              id.includes('react-router') ||
+              id.includes('scheduler')
+            ) {
+              return 'vendor-react';
+            }
+            if (id.includes('@radix-ui') || id.includes('clsx') || id.includes('tailwind-merge')) {
+              return 'vendor-ui';
+            }
+            if (id.includes('lucide-react')) {
+              return 'vendor-icons';
+            }
+            if (id.includes('@microsoft/signalr')) {
+              return 'vendor-signalr';
+            }
+          }
+        },
+      },
+    },
+  },
 })

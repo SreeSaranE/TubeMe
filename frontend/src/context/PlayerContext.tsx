@@ -22,9 +22,10 @@ export interface PlayerContextType {
   isCompleted: boolean;
   queue: MediaVideoItem[];
   videoRef: React.RefObject<HTMLVideoElement | null>;
+  activePlaylistId: string | null;
 
   // Actions
-  playVideo: (video: MediaVideoItem, newQueue?: MediaVideoItem[]) => void;
+  playVideo: (video: MediaVideoItem, newQueue?: MediaVideoItem[], playlistId?: string | null) => void;
   togglePlay: () => void;
   seekTo: (seconds: number) => void;
   seekBy: (deltaSeconds: number) => void;
@@ -37,6 +38,7 @@ export interface PlayerContextType {
   playPrev: () => void;
   closePlayer: () => void;
   setQueue: React.Dispatch<React.SetStateAction<MediaVideoItem[]>>;
+  setActivePlaylistId: React.Dispatch<React.SetStateAction<string | null>>;
   mountVideoElement: (container: HTMLElement | null) => void;
 }
 
@@ -54,6 +56,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [isPiP, setIsPiP] = useState<boolean>(false);
   const [isCompleted, setIsCompleted] = useState<boolean>(false);
   const [queue, setQueue] = useState<MediaVideoItem[]>([]);
+  const [activePlaylistId, setActivePlaylistId] = useState<string | null>(null);
 
   // Persistent native HTML5 Video element
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -219,11 +222,14 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
-  // Public method to play a video and optionally set queue
-  const playVideo = useCallback((videoItem: MediaVideoItem, newQueue?: MediaVideoItem[]) => {
+  // Public method to play a video and optionally set queue and active playlist
+  const playVideo = useCallback((videoItem: MediaVideoItem, newQueue?: MediaVideoItem[], playlistId?: string | null) => {
     playVideoInternal(videoItem);
     if (newQueue) {
       setQueue(newQueue.filter((v) => v.relativePath !== videoItem.relativePath));
+    }
+    if (playlistId !== undefined) {
+      setActivePlaylistId(playlistId);
     }
   }, []);
 
@@ -467,6 +473,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         isCompleted,
         queue,
         videoRef,
+        activePlaylistId,
         playVideo,
         togglePlay,
         seekTo,
@@ -480,6 +487,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         playPrev,
         closePlayer,
         setQueue,
+        setActivePlaylistId,
         mountVideoElement,
       }}
     >

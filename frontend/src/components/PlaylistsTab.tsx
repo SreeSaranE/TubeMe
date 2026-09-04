@@ -441,7 +441,9 @@ export function PlaylistsTab() {
                 <button
                   type="button"
                   onClick={() =>
-                    navigate(`/watch?path=${encodeURIComponent(activePlaylist.videos[0].relativePath)}`)
+                    navigate(
+                      `/watch?path=${encodeURIComponent(activePlaylist.videos[0].relativePath)}&playlistId=${encodeURIComponent(activePlaylist.id)}`
+                    )
                   }
                   className="btn btn-primary h-10 px-4 text-xs sm:text-sm font-medium flex items-center gap-2 cursor-pointer shadow-xs"
                 >
@@ -503,7 +505,11 @@ export function PlaylistsTab() {
               {activePlaylist.videos.map((item) => (
                 <div
                   key={item.id}
-                  onClick={() => navigate(`/watch?path=${encodeURIComponent(item.relativePath)}`)}
+                  onClick={() =>
+                    navigate(
+                      `/watch?path=${encodeURIComponent(item.relativePath)}&playlistId=${encodeURIComponent(activePlaylist.id)}`
+                    )
+                  }
                   className="group cursor-pointer flex flex-col space-y-3 select-none relative"
                 >
                   {/* Video Thumbnail */}

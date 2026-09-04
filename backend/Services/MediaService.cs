@@ -26,12 +26,71 @@ namespace YoutubeDownloader.Services
         };
 
         private static readonly ConcurrentDictionary<string, (long LastWriteTicks, string Duration)> _durationCache = new(StringComparer.OrdinalIgnoreCase);
+        private static volatile List<CachedVideoMetadata>? _cachedMetadataList;
+        private static DateTime _lastCacheTime = DateTime.MinValue;
+        private static readonly System.Threading.SemaphoreSlim _cacheLock = new(1, 1);
+        private static FileSystemWatcher? _watcher;
+        private static string? _watchedDirectory;
+        private static readonly object _watcherLock = new();
 
         public MediaService(ISettingsService settingsService, IChannelRepository channelRepository, IWatchHistoryRepository watchHistoryRepository)
         {
             _settingsService = settingsService;
             _channelRepository = channelRepository;
             _watchHistoryRepository = watchHistoryRepository;
+
+            EnsureFileSystemWatcher();
+        }
+
+        private void EnsureFileSystemWatcher()
+        {
+            try
+            {
+                var settings = _settingsService.GetSettings();
+                string outputDir = settings.OutputDir;
+
+                if (!Directory.Exists(outputDir)) return;
+
+                lock (_watcherLock)
+                {
+                    if (_watcher != null && string.Equals(_watchedDirectory, outputDir, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return;
+                    }
+
+                    _watcher?.Dispose();
+                    _watchedDirectory = outputDir;
+
+                    _watcher = new FileSystemWatcher(outputDir)
+                    {
+                        IncludeSubdirectories = true,
+                        NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.DirectoryName,
+                        EnableRaisingEvents = true
+                    };
+
+                    FileSystemEventHandler onChange = (s, e) =>
+                    {
+                        string ext = Path.GetExtension(e.FullPath);
+                        if (VideoExtensions.Contains(ext) || ext.Equals(".srt", StringComparison.OrdinalIgnoreCase))
+                        {
+                            InvalidateCache();
+                        }
+                    };
+
+                    RenamedEventHandler onRename = (s, e) =>
+                    {
+                        InvalidateCache();
+                    };
+
+                    _watcher.Created += onChange;
+                    _watcher.Deleted += onChange;
+                    _watcher.Changed += onChange;
+                    _watcher.Renamed += onRename;
+                }
+            }
+            catch
+            {
+            }
         }
 
         public async Task<List<MediaVideoItem>> GetAllVideosAsync()
@@ -44,98 +103,149 @@ namespace YoutubeDownloader.Services
                 return new List<MediaVideoItem>();
             }
 
+            var metadataList = await GetOrRefreshCachedMetadataAsync(rootDir);
+
             var channels = _channelRepository.GetAll();
             var channelMap = channels.ToDictionary(c => c.Name.Trim().ToLowerInvariant(), c => c);
             var historyMap = _watchHistoryRepository.GetAllMap();
 
-            var allFiles = Directory.EnumerateFiles(rootDir, "*.*", SearchOption.AllDirectories)
-                .Where(f => VideoExtensions.Contains(Path.GetExtension(f)))
-                .ToList();
+            var result = new List<MediaVideoItem>(metadataList.Count);
 
-            var tasks = allFiles.Select(async filePath =>
+            foreach (var meta in metadataList)
             {
-                try
+                string? avatarUrl = null;
+                if (channelMap.TryGetValue(meta.ChannelName.ToLowerInvariant(), out var matchedChannel))
                 {
-                    var fileInfo = new FileInfo(filePath);
-                    string relPath = Path.GetRelativePath(rootDir, filePath);
-                    string normRelPath = relPath.Replace('\\', '/');
-                    
-                    // Determine channel name from folder hierarchy or metadata
-                    string channelName = "Local Media";
-                    string? dirName = Path.GetDirectoryName(relPath);
-                    if (!string.IsNullOrEmpty(dirName))
-                    {
-                        var parts = dirName.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-                        if (parts.Length > 0 && !string.IsNullOrWhiteSpace(parts[0]))
-                        {
-                            channelName = parts[0];
-                        }
-                    }
-
-                    string cleanTitle = Path.GetFileNameWithoutExtension(filePath);
-                    string ext = Path.GetExtension(filePath).TrimStart('.').ToUpperInvariant();
-
-                    string? avatarUrl = null;
-                    if (channelMap.TryGetValue(channelName.ToLowerInvariant(), out var matchedChannel))
-                    {
-                        avatarUrl = matchedChannel.AvatarUrl;
-                    }
-
-                    // Check for subtitles
-                    string dir = Path.GetDirectoryName(filePath) ?? "";
-                    string baseNameWithoutExt = Path.GetFileNameWithoutExtension(filePath);
-                    bool hasSubs = false;
-                    string? subRelPath = null;
-
-                    if (Directory.Exists(dir))
-                    {
-                        var srtFiles = Directory.GetFiles(dir, $"{baseNameWithoutExt}*.srt");
-                        if (srtFiles.Length > 0)
-                        {
-                            hasSubs = true;
-                            subRelPath = Path.GetRelativePath(rootDir, srtFiles[0]);
-                        }
-                    }
-
-                    string encodedRelPath = Uri.EscapeDataString(normRelPath);
-                    string encodedSubPath = subRelPath != null ? Uri.EscapeDataString(subRelPath.Replace('\\', '/')) : "";
-
-                    string? duration = await GetOrExtractDurationAsync(filePath, fileInfo.LastWriteTimeUtc.Ticks);
-
-                    bool isCompleted = false;
-
-                    if (historyMap.TryGetValue(normRelPath, out var hist))
-                    {
-                        isCompleted = hist.IsCompleted;
-                    }
-
-                    return new MediaVideoItem
-                    {
-                        Id = GetMd5Hash(normRelPath),
-                        Title = cleanTitle,
-                        FileName = Path.GetFileName(filePath),
-                        RelativePath = normRelPath,
-                        ChannelName = channelName,
-                        ChannelAvatarUrl = avatarUrl,
-                        Size = fileInfo.Length,
-                        LastModified = fileInfo.LastWriteTimeUtc,
-                        Format = ext,
-                        ThumbnailUrl = $"/api/media/thumbnail?path={encodedRelPath}",
-                        StreamUrl = $"/api/media/stream?path={encodedRelPath}",
-                        HasSubtitles = hasSubs,
-                        SubtitleUrl = hasSubs ? $"/api/media/subtitles?path={encodedSubPath}" : null,
-                        Duration = duration,
-                        IsCompleted = isCompleted
-                    };
+                    avatarUrl = matchedChannel.AvatarUrl;
                 }
-                catch
+
+                bool isCompleted = false;
+                if (historyMap.TryGetValue(meta.RelativePath, out var hist))
                 {
-                    return null;
+                    isCompleted = hist.IsCompleted;
                 }
-            });
 
-            var results = await Task.WhenAll(tasks);
-            return results.Where(item => item != null).Select(item => item!).OrderByDescending(v => v.LastModified).ToList();
+                result.Add(new MediaVideoItem
+                {
+                    Id = meta.Id,
+                    Title = meta.Title,
+                    FileName = meta.FileName,
+                    RelativePath = meta.RelativePath,
+                    ChannelName = meta.ChannelName,
+                    ChannelAvatarUrl = avatarUrl,
+                    Size = meta.Size,
+                    LastModified = meta.LastModified,
+                    Format = meta.Format,
+                    ThumbnailUrl = meta.ThumbnailUrl,
+                    StreamUrl = meta.StreamUrl,
+                    HasSubtitles = meta.HasSubtitles,
+                    SubtitleUrl = meta.SubtitleUrl,
+                    Duration = meta.Duration,
+                    IsCompleted = isCompleted
+                });
+            }
+
+            return result.OrderByDescending(v => v.LastModified).ToList();
+        }
+
+        private async Task<List<CachedVideoMetadata>> GetOrRefreshCachedMetadataAsync(string rootDir)
+        {
+            var existing = _cachedMetadataList;
+            if (existing != null && (DateTime.UtcNow - _lastCacheTime).TotalSeconds < 30)
+            {
+                return existing;
+            }
+
+            await _cacheLock.WaitAsync();
+            try
+            {
+                // Double-checked locking pattern
+                if (_cachedMetadataList != null && (DateTime.UtcNow - _lastCacheTime).TotalSeconds < 30)
+                {
+                    return _cachedMetadataList;
+                }
+
+                var allFiles = Directory.EnumerateFiles(rootDir, "*.*", SearchOption.AllDirectories)
+                    .Where(f => VideoExtensions.Contains(Path.GetExtension(f)))
+                    .ToList();
+
+                var tasks = allFiles.Select(async filePath =>
+                {
+                    try
+                    {
+                        var fileInfo = new FileInfo(filePath);
+                        string relPath = Path.GetRelativePath(rootDir, filePath);
+                        string normRelPath = relPath.Replace('\\', '/');
+
+                        // Determine channel name from folder hierarchy or metadata
+                        string channelName = "Local Media";
+                        string? dirName = Path.GetDirectoryName(relPath);
+                        if (!string.IsNullOrEmpty(dirName))
+                        {
+                            var parts = dirName.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                            if (parts.Length > 0 && !string.IsNullOrWhiteSpace(parts[0]))
+                            {
+                                channelName = parts[0];
+                            }
+                        }
+
+                        string cleanTitle = Path.GetFileNameWithoutExtension(filePath);
+                        string ext = Path.GetExtension(filePath).TrimStart('.').ToUpperInvariant();
+
+                        // Check for subtitles
+                        string dir = Path.GetDirectoryName(filePath) ?? "";
+                        string baseNameWithoutExt = Path.GetFileNameWithoutExtension(filePath);
+                        bool hasSubs = false;
+                        string? subRelPath = null;
+
+                        if (Directory.Exists(dir))
+                        {
+                            var srtFiles = Directory.GetFiles(dir, $"{baseNameWithoutExt}*.srt");
+                            if (srtFiles.Length > 0)
+                            {
+                                hasSubs = true;
+                                subRelPath = Path.GetRelativePath(rootDir, srtFiles[0]);
+                            }
+                        }
+
+                        string encodedRelPath = Uri.EscapeDataString(normRelPath);
+                        string encodedSubPath = subRelPath != null ? Uri.EscapeDataString(subRelPath.Replace('\\', '/')) : "";
+
+                        string? duration = await GetOrExtractDurationAsync(filePath, fileInfo.LastWriteTimeUtc.Ticks);
+
+                        return new CachedVideoMetadata
+                        {
+                            Id = GetMd5Hash(normRelPath),
+                            Title = cleanTitle,
+                            FileName = Path.GetFileName(filePath),
+                            RelativePath = normRelPath,
+                            ChannelName = channelName,
+                            Size = fileInfo.Length,
+                            LastModified = fileInfo.LastWriteTimeUtc,
+                            Format = ext,
+                            ThumbnailUrl = $"/api/media/thumbnail?path={encodedRelPath}",
+                            StreamUrl = $"/api/media/stream?path={encodedRelPath}",
+                            HasSubtitles = hasSubs,
+                            SubtitleUrl = hasSubs ? $"/api/media/subtitles?path={encodedSubPath}" : null,
+                            Duration = duration
+                        };
+                    }
+                    catch
+                    {
+                        return null;
+                    }
+                });
+
+                var results = await Task.WhenAll(tasks);
+                var validList = results.Where(item => item != null).Select(item => item!).ToList();
+                _cachedMetadataList = validList;
+                _lastCacheTime = DateTime.UtcNow;
+                return validList;
+            }
+            finally
+            {
+                _cacheLock.Release();
+            }
         }
 
         private async Task<string?> GetOrExtractDurationAsync(string fullVideoPath, long lastWriteTicks)
@@ -279,6 +389,14 @@ namespace YoutubeDownloader.Services
                     }
                 }
 
+                // Immediately remove from in-memory cache for instant UI consistency
+                var current = _cachedMetadataList;
+                if (current != null)
+                {
+                    string norm = relativePath.Trim().Replace('\\', '/').ToLowerInvariant();
+                    _cachedMetadataList = current.Where(c => !c.RelativePath.Replace('\\', '/').ToLowerInvariant().Equals(norm)).ToList();
+                }
+
                 return true;
             }
             catch
@@ -337,6 +455,12 @@ namespace YoutubeDownloader.Services
             return sb.ToString();
         }
 
+        public void InvalidateCache()
+        {
+            _cachedMetadataList = null;
+            _lastCacheTime = DateTime.MinValue;
+        }
+
         private static double ParseDurationStringToSeconds(string durationStr)
         {
             if (string.IsNullOrWhiteSpace(durationStr)) return 0;
@@ -351,5 +475,22 @@ namespace YoutubeDownloader.Services
             }
             return 0;
         }
+    }
+
+    public class CachedVideoMetadata
+    {
+        public string Id { get; set; } = string.Empty;
+        public string Title { get; set; } = string.Empty;
+        public string FileName { get; set; } = string.Empty;
+        public string RelativePath { get; set; } = string.Empty;
+        public string ChannelName { get; set; } = string.Empty;
+        public long Size { get; set; }
+        public DateTime LastModified { get; set; }
+        public string Format { get; set; } = string.Empty;
+        public string ThumbnailUrl { get; set; } = string.Empty;
+        public string StreamUrl { get; set; } = string.Empty;
+        public bool HasSubtitles { get; set; }
+        public string? SubtitleUrl { get; set; }
+        public string? Duration { get; set; }
     }
 }

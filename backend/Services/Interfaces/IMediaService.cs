@@ -11,5 +11,6 @@ namespace YoutubeDownloader.Services.Interfaces
         string? GetFullFilePath(string relativePath);
         string? GetSubtitleVttContent(string relativePath);
         bool DeleteMediaFile(string relativePath);
+        void InvalidateCache();
     }
 }

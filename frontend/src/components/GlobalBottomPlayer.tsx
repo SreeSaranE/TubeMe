@@ -56,6 +56,7 @@ export function GlobalBottomPlayer() {
     playPrev,
     closePlayer,
     mountVideoElement,
+    activePlaylistId,
   } = usePlayer();
 
   const isWatchPage = location.pathname === '/watch';
@@ -95,7 +96,10 @@ export function GlobalBottomPlayer() {
 
   const handleExpandToWatch = () => {
     if (currentVideo) {
-      navigate(`/watch?path=${encodeURIComponent(currentVideo.relativePath)}`);
+      const targetUrl = activePlaylistId
+        ? `/watch?path=${encodeURIComponent(currentVideo.relativePath)}&playlistId=${encodeURIComponent(activePlaylistId)}`
+        : `/watch?path=${encodeURIComponent(currentVideo.relativePath)}`;
+      navigate(targetUrl);
     }
   };
 

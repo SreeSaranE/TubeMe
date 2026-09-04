@@ -68,7 +68,22 @@ app.UseCors("CorsPolicy");
 
 // Enable Static Files (React frontend served from wwwroot in production)
 app.UseDefaultFiles();
-app.UseStaticFiles();
+app.UseStaticFiles(new StaticFileOptions
+{
+    OnPrepareResponse = ctx =>
+    {
+        // Don't cache index.html long-term so SPA route updates and new deployments load instantly
+        if (ctx.File.Name.Equals("index.html", StringComparison.OrdinalIgnoreCase))
+        {
+            ctx.Context.Response.Headers.Append("Cache-Control", "no-cache, no-store, must-revalidate");
+        }
+        else
+        {
+            // Cache static frontend assets (JS chunks, CSS, SVG favicon, images, fonts) for 1 year
+            ctx.Context.Response.Headers.Append("Cache-Control", "public, max-age=31536000, immutable");
+        }
+    }
+});
 
 app.UseRouting();
 

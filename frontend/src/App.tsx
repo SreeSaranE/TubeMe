@@ -1,21 +1,34 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { PlayerProvider, usePlayer } from '@/context/PlayerContext';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { Toaster } from '@/components/ui/toaster';
 import { AppSidebar } from '@/components/AppSidebar';
-import { ChannelsTab } from '@/components/ChannelsTab';
-import { SearchTab } from '@/components/SearchTab';
-import { DownloadsTab } from '@/components/DownloadsTab';
 import { HomeTab } from '@/components/HomeTab';
-import { VideoPlayerTab } from '@/components/VideoPlayerTab';
-import { HistoryTab } from '@/components/HistoryTab';
-import { PlaylistsTab } from '@/components/PlaylistsTab';
-import { StatisticsTab } from '@/components/StatisticsTab';
-import { SettingsTab } from '@/components/SettingsTab';
 import { GlobalBottomPlayer } from '@/components/GlobalBottomPlayer';
 import { api, createSignalRConnection } from '@/services/api';
+
+// Route-level code-splitting with React.lazy
+const VideoPlayerTab = lazy(() => import('@/components/VideoPlayerTab').then(m => ({ default: m.VideoPlayerTab })));
+const HistoryTab = lazy(() => import('@/components/HistoryTab').then(m => ({ default: m.HistoryTab })));
+const ChannelsTab = lazy(() => import('@/components/ChannelsTab').then(m => ({ default: m.ChannelsTab })));
+const PlaylistsTab = lazy(() => import('@/components/PlaylistsTab').then(m => ({ default: m.PlaylistsTab })));
+const SearchTab = lazy(() => import('@/components/SearchTab').then(m => ({ default: m.SearchTab })));
+const DownloadsTab = lazy(() => import('@/components/DownloadsTab').then(m => ({ default: m.DownloadsTab })));
+const StatisticsTab = lazy(() => import('@/components/StatisticsTab').then(m => ({ default: m.StatisticsTab })));
+const SettingsTab = lazy(() => import('@/components/SettingsTab').then(m => ({ default: m.SettingsTab })));
+
+function RouteLoadingFallback() {
+  return (
+    <div className="flex items-center justify-center min-h-[40vh] w-full">
+      <div className="flex flex-col items-center gap-3">
+        <div className="w-8 h-8 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+        <span className="text-xs text-muted-foreground font-medium animate-pulse">Loading...</span>
+      </div>
+    </div>
+  );
+}
 import {
   ChannelModel,
   DownloadItem,
@@ -162,72 +175,74 @@ function AppContent() {
           <div className="md:hidden mb-3 shrink-0">
             <SidebarTrigger />
           </div>
-          <Routes>
-            {/* 1. Home Feed (YouTube-style video library grid) */}
-            <Route path="/" element={<HomeTab />} />
+          <Suspense fallback={<RouteLoadingFallback />}>
+            <Routes>
+              {/* 1. Home Feed (YouTube-style video library grid) */}
+              <Route path="/" element={<HomeTab />} />
 
-            {/* 2. YouTube-style Video Player Page */}
-            <Route path="/watch" element={<VideoPlayerTab />} />
+              {/* 2. YouTube-style Video Player Page */}
+              <Route path="/watch" element={<VideoPlayerTab />} />
 
-            {/* 2b. Watch History Page */}
-            <Route path="/history" element={<HistoryTab />} />
+              {/* 2b. Watch History Page */}
+              <Route path="/history" element={<HistoryTab />} />
 
-            {/* 3. Channels Management */}
-            <Route
-              path="/channels"
-              element={
-                <ChannelsTab
-                  channels={channels}
-                  onAddChannel={handleAddChannel}
-                  onUpdateCategory={handleUpdateCategory}
-                  onRemoveChannel={handleRemoveChannel}
-                  onSyncChannels={handleSyncChannels}
-                  onRefreshMetadata={handleRefreshMetadata}
-                  onReloadChannels={loadData}
-                  settings={settings}
-                />
-              }
-            />
+              {/* 3. Channels Management */}
+              <Route
+                path="/channels"
+                element={
+                  <ChannelsTab
+                    channels={channels}
+                    onAddChannel={handleAddChannel}
+                    onUpdateCategory={handleUpdateCategory}
+                    onRemoveChannel={handleRemoveChannel}
+                    onSyncChannels={handleSyncChannels}
+                    onRefreshMetadata={handleRefreshMetadata}
+                    onReloadChannels={loadData}
+                    settings={settings}
+                  />
+                }
+              />
 
-            {/* Playlists & Categories Page */}
-            <Route path="/playlists" element={<PlaylistsTab />} />
-            <Route path="/playlist" element={<Navigate to="/playlists" replace />} />
+              {/* Playlists & Categories Page */}
+              <Route path="/playlists" element={<PlaylistsTab />} />
+              <Route path="/playlist" element={<Navigate to="/playlists" replace />} />
 
-            {/* 4. Search & Direct Downloader */}
-            <Route
-              path="/search"
-              element={
-                <SearchTab onStartDownload={handleStartDownload} settings={settings} />
-              }
-            />
+              {/* 4. Search & Direct Downloader */}
+              <Route
+                path="/search"
+                element={
+                  <SearchTab onStartDownload={handleStartDownload} settings={settings} />
+                }
+              />
 
-            {/* 5. Downloads Queue */}
-            <Route
-              path="/downloads"
-              element={
-                <DownloadsTab
-                  downloads={downloads}
-                  onCancelDownload={handleCancelDownload}
-                  onClearHistory={handleClearHistory}
-                />
-              }
-            />
-            <Route path="/queue" element={<Navigate to="/downloads" replace />} />
-            <Route path="/library" element={<Navigate to="/" replace />} />
+              {/* 5. Downloads Queue */}
+              <Route
+                path="/downloads"
+                element={
+                  <DownloadsTab
+                    downloads={downloads}
+                    onCancelDownload={handleCancelDownload}
+                    onClearHistory={handleClearHistory}
+                  />
+                }
+              />
+              <Route path="/queue" element={<Navigate to="/downloads" replace />} />
+              <Route path="/library" element={<Navigate to="/" replace />} />
 
-            {/* 6. Statistics */}
-            <Route path="/stats" element={<StatisticsTab />} />
-            <Route path="/statistics" element={<Navigate to="/stats" replace />} />
+              {/* 6. Statistics */}
+              <Route path="/stats" element={<StatisticsTab />} />
+              <Route path="/statistics" element={<Navigate to="/stats" replace />} />
 
-            {/* 7. Settings */}
-            <Route
-              path="/settings"
-              element={
-                <SettingsTab settings={settings} onSettingsSaved={(s) => setSettings(s)} />
-              }
-            />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+              {/* 7. Settings */}
+              <Route
+                path="/settings"
+                element={
+                  <SettingsTab settings={settings} onSettingsSaved={(s) => setSettings(s)} />
+                }
+              />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Suspense>
         </main>
       </div>
 
