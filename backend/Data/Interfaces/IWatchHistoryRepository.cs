@@ -11,5 +11,11 @@ namespace YoutubeDownloader.Data.Interfaces
         Dictionary<string, WatchHistoryItem> GetAllMap();
         bool Delete(string id);
         void ClearAll();
+
+        // Persistent Watch Time Ledger
+        double GetTotalLifetimeWatchTimeSeconds();
+        Dictionary<string, double> GetChannelWatchTimeMap();
+        Dictionary<string, int> GetChannelWatchedCountMap();
+        List<WatchTimeLedgerItem> GetAllLedgerItems();
     }
 }

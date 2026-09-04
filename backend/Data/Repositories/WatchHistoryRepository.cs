@@ -32,6 +32,18 @@ namespace YoutubeDownloader.Data.Repositories
                 return;
             }
 
+            double effectiveDuration = 600;
+            if (duration > 0 && duration < 999990)
+            {
+                effectiveDuration = duration;
+            }
+            else if (currentTime > 0 && currentTime < 999990)
+            {
+                effectiveDuration = currentTime;
+            }
+
+            string effectiveChannel = !string.IsNullOrWhiteSpace(channelName) ? channelName.Trim() : "Local Media";
+
             lock (_lock)
             {
                 using var conn = _connectionFactory.CreateConnection();
@@ -47,14 +59,23 @@ namespace YoutubeDownloader.Data.Repositories
                         title = COALESCE(NULLIF(@title, ''), title),
                         channel_name = COALESCE(NULLIF(@channelName, ''), channel_name),
                         is_completed = 1,
-                        last_watched_at = datetime('now');";
+                        last_watched_at = datetime('now');
+
+                    INSERT INTO watch_time_ledger (id, video_identifier, title, channel_name, duration_seconds, logged_at)
+                    VALUES (@id, @relativePath, @title, @channelName, @effectiveDuration, datetime('now'))
+                    ON CONFLICT(video_identifier) DO UPDATE SET
+                        duration_seconds = CASE WHEN @effectiveDuration > 0 THEN @effectiveDuration ELSE watch_time_ledger.duration_seconds END,
+                        title = COALESCE(NULLIF(@title, ''), watch_time_ledger.title),
+                        channel_name = COALESCE(NULLIF(@channelName, ''), watch_time_ledger.channel_name),
+                        logged_at = datetime('now');";
 
                 cmd.Parameters.AddWithValue("@id", id);
                 cmd.Parameters.AddWithValue("@relativePath", normalizedRelPath);
                 cmd.Parameters.AddWithValue("@title", (object?)title ?? DBNull.Value);
-                cmd.Parameters.AddWithValue("@channelName", (object?)channelName ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@channelName", (object?)effectiveChannel ?? DBNull.Value);
                 cmd.Parameters.AddWithValue("@currentTime", currentTime);
                 cmd.Parameters.AddWithValue("@duration", duration);
+                cmd.Parameters.AddWithValue("@effectiveDuration", effectiveDuration);
 
                 cmd.ExecuteNonQuery();
             }
@@ -168,6 +189,103 @@ namespace YoutubeDownloader.Data.Repositories
 
                 cmd.CommandText = "DELETE FROM watch_history;";
                 cmd.ExecuteNonQuery();
+            }
+        }
+
+        public double GetTotalLifetimeWatchTimeSeconds()
+        {
+            lock (_lock)
+            {
+                using var conn = _connectionFactory.CreateConnection();
+                using var cmd = conn.CreateCommand();
+
+                cmd.CommandText = "SELECT COALESCE(SUM(duration_seconds), 0) FROM watch_time_ledger;";
+                var result = cmd.ExecuteScalar();
+                if (result != null && double.TryParse(result.ToString(), out var seconds))
+                {
+                    return seconds;
+                }
+                return 0;
+            }
+        }
+
+        public Dictionary<string, double> GetChannelWatchTimeMap()
+        {
+            lock (_lock)
+            {
+                var map = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+                using var conn = _connectionFactory.CreateConnection();
+                using var cmd = conn.CreateCommand();
+
+                cmd.CommandText = @"
+                    SELECT COALESCE(NULLIF(channel_name, ''), 'Local Media') AS channel, 
+                           SUM(duration_seconds) AS total_seconds 
+                    FROM watch_time_ledger 
+                    GROUP BY channel;";
+
+                using var reader = cmd.ExecuteReader();
+                while (reader.Read())
+                {
+                    string channel = reader.GetString(0).Trim();
+                    double seconds = reader.IsDBNull(1) ? 0 : Convert.ToDouble(reader.GetValue(1));
+                    map[channel] = seconds;
+                }
+
+                return map;
+            }
+        }
+
+        public Dictionary<string, int> GetChannelWatchedCountMap()
+        {
+            lock (_lock)
+            {
+                var map = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                using var conn = _connectionFactory.CreateConnection();
+                using var cmd = conn.CreateCommand();
+
+                cmd.CommandText = @"
+                    SELECT COALESCE(NULLIF(channel_name, ''), 'Local Media') AS channel, 
+                           COUNT(*) AS watched_count 
+                    FROM watch_time_ledger 
+                    GROUP BY channel;";
+
+                using var reader = cmd.ExecuteReader();
+                while (reader.Read())
+                {
+                    string channel = reader.GetString(0).Trim();
+                    int count = reader.IsDBNull(1) ? 0 : Convert.ToInt32(reader.GetValue(1));
+                    map[channel] = count;
+                }
+
+                return map;
+            }
+        }
+
+        public List<WatchTimeLedgerItem> GetAllLedgerItems()
+        {
+            lock (_lock)
+            {
+                var list = new List<WatchTimeLedgerItem>();
+                using var conn = _connectionFactory.CreateConnection();
+                using var cmd = conn.CreateCommand();
+
+                cmd.CommandText = "SELECT id, video_identifier, title, channel_name, duration_seconds, logged_at FROM watch_time_ledger ORDER BY logged_at DESC;";
+
+                using var reader = cmd.ExecuteReader();
+                while (reader.Read())
+                {
+                    list.Add(new WatchTimeLedgerItem
+                    {
+                        Id = reader.GetString(0),
+                        VideoIdentifier = reader.GetString(1),
+                        Title = reader.IsDBNull(2) ? string.Empty : reader.GetString(2),
+                        ChannelName = reader.IsDBNull(3) ? "Local Media" : reader.GetString(3),
+                        DurationSeconds = reader.IsDBNull(4) ? 0 : Convert.ToDouble(reader.GetValue(4)),
+                        LoggedAt = DateTime.TryParse(reader.GetString(5), out var dt) ? dt : DateTime.UtcNow
+                    });
+                }
+
+                return list;
             }
         }
 

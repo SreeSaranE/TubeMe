@@ -34,14 +34,8 @@ namespace YoutubeDownloader.Services
         {
             var videos = await _mediaService.GetAllVideosAsync();
             var channels = _channelRepository.GetAll();
-            var historyList = _watchHistoryRepository.GetAll();
             var playlists = _playlistRepository.GetAllPlaylists();
             var categories = _categoryRepository.GetAllWithCount();
-
-            var historyMap = historyList
-                .Where(h => !string.IsNullOrWhiteSpace(h.RelativePath))
-                .GroupBy(h => h.RelativePath.Trim().Replace('\\', '/'), StringComparer.OrdinalIgnoreCase)
-                .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
 
             int totalVideos = videos.Count;
             int totalChannels = channels.Count;
@@ -56,58 +50,52 @@ namespace YoutubeDownloader.Services
                 .GroupBy(c => c.Name.Trim(), StringComparer.OrdinalIgnoreCase)
                 .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
 
-            // Channel watch times dictionary
-            var channelWatchTimes = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
-            double totalWatchTimeSeconds = 0;
+            // Fetch lifetime metrics from persistent watch_time_ledger
+            double totalWatchTimeSeconds = _watchHistoryRepository.GetTotalLifetimeWatchTimeSeconds();
+            var channelWatchTimes = _watchHistoryRepository.GetChannelWatchTimeMap();
+            var channelWatchedCounts = _watchHistoryRepository.GetChannelWatchedCountMap();
 
-            // Compute watch time from all media videos
-            foreach (var video in videos)
+            // If ledger is empty (e.g. initial setup fallback), compute from current completed media
+            if (totalWatchTimeSeconds <= 0 && watchedVideosCount > 0)
             {
-                if (video.IsCompleted)
+                foreach (var video in videos.Where(v => v.IsCompleted))
                 {
                     double durSec = ParseDurationStringToSeconds(video.Duration);
-
-                    // If duration string is missing or 0, check history list
-                    if (durSec <= 0 && historyMap.TryGetValue(video.RelativePath, out var histItem))
-                    {
-                        if (histItem.Duration > 0 && histItem.Duration < 999990)
-                        {
-                            durSec = histItem.Duration;
-                        }
-                    }
-
-                    // Fallback to reasonable estimate (~10 mins) if no metadata could be extracted
-                    if (durSec <= 0)
-                    {
-                        durSec = 600;
-                    }
-
+                    if (durSec <= 0) durSec = 600;
                     totalWatchTimeSeconds += durSec;
+
                     string chName = (video.ChannelName ?? "Local Media").Trim();
-                    if (!channelWatchTimes.ContainsKey(chName))
-                    {
-                        channelWatchTimes[chName] = 0;
-                    }
-                    channelWatchTimes[chName] += durSec;
+                    channelWatchTimes[chName] = (channelWatchTimes.TryGetValue(chName, out var existingWt) ? existingWt : 0) + durSec;
+                    channelWatchedCounts[chName] = (channelWatchedCounts.TryGetValue(chName, out var existingCount) ? existingCount : 0) + 1;
                 }
             }
 
-            // Group videos by channel
+            // Group active videos by channel
             var channelVideoGroups = videos
                 .Where(v => !string.IsNullOrWhiteSpace(v.ChannelName))
-                .GroupBy(v => v.ChannelName.Trim(), StringComparer.OrdinalIgnoreCase);
+                .GroupBy(v => v.ChannelName.Trim(), StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
+
+            // Collect all unique channel names across subscriptions, active videos, and historical ledger
+            var allChannelNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var ch in channels) if (!string.IsNullOrWhiteSpace(ch.Name)) allChannelNames.Add(ch.Name.Trim());
+            foreach (var groupKey in channelVideoGroups.Keys) allChannelNames.Add(groupKey);
+            foreach (var ledgerChannel in channelWatchTimes.Keys) allChannelNames.Add(ledgerChannel);
+            foreach (var ledgerChannel in channelWatchedCounts.Keys) allChannelNames.Add(ledgerChannel);
 
             var channelStatsList = new List<ChannelWatchStatModel>();
 
-            foreach (var group in channelVideoGroups)
+            foreach (var channelName in allChannelNames)
             {
-                string channelName = group.Key;
-                int channelWatchedCount = group.Count(v => v.IsCompleted);
-                int channelTotalVideos = group.Count();
-                long channelTotalSize = group.Sum(v => v.Size);
+                channelVideoGroups.TryGetValue(channelName, out var groupVideos);
+                int channelTotalVideos = groupVideos?.Count ?? 0;
+                long channelTotalSize = groupVideos?.Sum(v => v.Size) ?? 0;
 
+                int activeWatched = groupVideos?.Count(v => v.IsCompleted) ?? 0;
+                int channelWatchedCount = channelWatchedCounts.TryGetValue(channelName, out var lCount) ? Math.Max(lCount, activeWatched) : activeWatched;
                 double watchTime = channelWatchTimes.TryGetValue(channelName, out var wt) ? wt : 0;
-                string? avatarUrl = channelMap.TryGetValue(channelName, out var ch) ? ch.AvatarUrl : group.FirstOrDefault()?.ChannelAvatarUrl;
+
+                string? avatarUrl = channelMap.TryGetValue(channelName, out var ch) ? ch.AvatarUrl : groupVideos?.FirstOrDefault()?.ChannelAvatarUrl;
 
                 channelStatsList.Add(new ChannelWatchStatModel
                 {
@@ -118,24 +106,6 @@ namespace YoutubeDownloader.Services
                     TotalWatchTimeSeconds = watchTime,
                     TotalSizeBytes = channelTotalSize,
                 });
-            }
-
-            // Also check any channel that has history but no currently loaded videos
-            foreach (var kvp in channelWatchTimes)
-            {
-                if (!channelStatsList.Any(cs => cs.ChannelName.Equals(kvp.Key, StringComparison.OrdinalIgnoreCase)))
-                {
-                    string? avatarUrl = channelMap.TryGetValue(kvp.Key, out var ch) ? ch.AvatarUrl : null;
-                    channelStatsList.Add(new ChannelWatchStatModel
-                    {
-                        ChannelName = kvp.Key,
-                        AvatarUrl = avatarUrl,
-                        WatchedCount = historyList.Count(h => h.ChannelName.Equals(kvp.Key, StringComparison.OrdinalIgnoreCase) && h.IsCompleted),
-                        TotalVideosCount = 0,
-                        TotalWatchTimeSeconds = kvp.Value,
-                        TotalSizeBytes = 0,
-                    });
-                }
             }
 
             // Order by most watched: WatchedCount DESC, then WatchTime DESC, then TotalVideos DESC

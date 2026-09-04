@@ -8,6 +8,7 @@ import { HomeFilters } from './home/HomeFilters';
 import { VideoCard } from './home/VideoCard';
 import { HomeEmptyState } from './home/HomeEmptyState';
 import { AddToPlaylistModal } from './AddToPlaylistModal';
+import { usePlayer } from '@/context/PlayerContext';
 import {
   AlertDialog,
   AlertDialogContent,
@@ -22,6 +23,7 @@ import {
 export function HomeTab() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { playVideo } = usePlayer();
   const [videos, setVideos] = useState<MediaVideoItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -51,14 +53,32 @@ export function HomeTab() {
     loadVideos();
   }, []);
 
+  const parseDurationStringToSeconds = (durationStr?: string | null): number => {
+    if (!durationStr) return 600;
+    const parts = durationStr.split(':');
+    if (parts.length === 2) {
+      const m = parseFloat(parts[0]);
+      const s = parseFloat(parts[1]);
+      if (!isNaN(m) && !isNaN(s)) return m * 60 + s;
+    }
+    if (parts.length === 3) {
+      const h = parseFloat(parts[0]);
+      const m = parseFloat(parts[1]);
+      const s = parseFloat(parts[2]);
+      if (!isNaN(h) && !isNaN(m) && !isNaN(s)) return h * 3600 + m * 60 + s;
+    }
+    return 600;
+  };
+
   const handleMarkAsWatched = async (video: MediaVideoItem) => {
     try {
+      const durSec = parseDurationStringToSeconds(video.duration);
       await api.updateWatchProgress({
         relativePath: video.relativePath,
         title: video.title,
         channelName: video.channelName,
-        currentTime: 999999, // Marks as 100% completed
-        duration: 999999,
+        currentTime: durSec,
+        duration: durSec,
       });
 
       // Update local state to completed
@@ -214,6 +234,14 @@ export function HomeTab() {
               key={video.id}
               video={video}
               onClick={() => navigate(`/watch?path=${encodeURIComponent(video.relativePath)}`)}
+              onPlayInBackground={(v) => {
+                playVideo(v, filteredVideos);
+                toast({
+                  variant: 'success',
+                  title: 'Playing in background',
+                  description: `"${v.title}" is now playing in the background.`,
+                });
+              }}
               onAddToPlaylist={(v) => setVideoForPlaylist(v)}
               onMarkAsWatched={handleMarkAsWatched}
               onDeleteFromDevice={(v) => setVideoToDelete(v)}

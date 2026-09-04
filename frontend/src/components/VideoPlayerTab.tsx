@@ -12,6 +12,17 @@ import {
   FileCode,
   Clock,
   Check,
+  Headphones,
+  PictureInPicture2,
+  Play,
+  Pause,
+  RotateCcw,
+  RotateCw,
+  SkipBack,
+  SkipForward,
+  Volume2,
+  Volume1,
+  VolumeX,
 } from 'lucide-react';
 import { MediaVideoItem } from '@/types';
 import { api } from '@/services/api';
@@ -32,18 +43,59 @@ import {
   AlertDialogCancel,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { usePlayer } from '@/context/PlayerContext';
+
+function formatTime(seconds: number): string {
+  if (!seconds || isNaN(seconds) || seconds < 0) return '0:00';
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  if (h > 0) {
+    return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  }
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
 
 export function VideoPlayerTab() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const cinemaContainerRef = useRef<HTMLDivElement>(null);
+
+  const {
+    currentVideo: playerVideo,
+    playVideo,
+    mountVideoElement,
+    videoRef,
+    isPlaying,
+    currentTime,
+    duration,
+    volume,
+    isMuted,
+    playbackRate,
+    isAudioOnly,
+    isPiP,
+    togglePlay,
+    seekTo,
+    seekBy,
+    setVolume,
+    toggleMute,
+    setPlaybackRate,
+    toggleAudioOnly,
+    togglePiP,
+    playNext,
+    playPrev,
+    closePlayer,
+    isCompleted: globalCompleted,
+  } = usePlayer();
 
   const [videos, setVideos] = useState<MediaVideoItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showDetailsPopover, setShowDetailsPopover] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isPodcastScrubbing, setIsPodcastScrubbing] = useState(false);
+  const [podcastScrubValue, setPodcastScrubValue] = useState(0);
 
   const currentPath = searchParams.get('path') || '';
 
@@ -73,6 +125,58 @@ export function VideoPlayerTab() {
     (v) => v.relativePath !== currentPath && !v.isCompleted
   );
 
+  // Sync playback when currentVideo is selected or changed
+  useEffect(() => {
+    if (currentVideo) {
+      if (!playerVideo || playerVideo.relativePath !== currentVideo.relativePath) {
+        playVideo(currentVideo, upNextVideos);
+      }
+    }
+  }, [currentVideo?.relativePath]);
+
+  // Mount persistent video into cinema container when active and not in audio-only mode
+  useEffect(() => {
+    const container = cinemaContainerRef.current;
+    if (container && !isAudioOnly) {
+      if (videoRef.current) {
+        videoRef.current.controls = true;
+      }
+      mountVideoElement(container);
+    }
+    return () => {
+      if (videoRef.current) {
+        videoRef.current.controls = false;
+      }
+      mountVideoElement(null);
+    };
+  }, [cinemaContainerRef.current, isAudioOnly, currentVideo?.relativePath, mountVideoElement]);
+
+  // Keyboard shortcuts when on watch page
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger if user is typing in an input
+      if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) {
+        return;
+      }
+      if (e.key === ' ' || e.key === 'k' || e.key === 'K') {
+        e.preventDefault();
+        togglePlay();
+      } else if (e.key === 'ArrowLeft' || e.key === 'j' || e.key === 'J') {
+        e.preventDefault();
+        seekBy(-10);
+      } else if (e.key === 'ArrowRight' || e.key === 'l' || e.key === 'L') {
+        e.preventDefault();
+        seekBy(10);
+      } else if (e.key === 'm' || e.key === 'M') {
+        e.preventDefault();
+        toggleMute();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [togglePlay, seekBy, toggleMute]);
+
   const formatBytes = (bytes: number) => {
     if (!bytes) return '0 B';
     const k = 1024;
@@ -90,6 +194,12 @@ export function VideoPlayerTab() {
       if (!res.ok) {
         throw new Error('Server returned ' + res.status);
       }
+
+      // Stop global player if deleting the active video
+      if (playerVideo?.relativePath === currentVideo.relativePath) {
+        closePlayer();
+      }
+
       const updated = videos.filter((v) => v.relativePath !== currentVideo.relativePath);
       setVideos(updated);
       setShowDeleteConfirm(false);
@@ -116,84 +226,6 @@ export function VideoPlayerTab() {
     }
   };
 
-  const [isCompleted, setIsCompleted] = useState(false);
-  const lastReportedTimeRef = useRef<number>(0);
-
-  // Sync completion state when current video changes
-  useEffect(() => {
-    setIsCompleted(!!currentVideo?.isCompleted);
-    lastReportedTimeRef.current = 0;
-  }, [currentVideo?.relativePath]);
-
-  // Resume playback if video was partially watched
-  const handleLoadedMetadata = () => {
-    if (
-      videoRef.current &&
-      currentVideo &&
-      currentVideo.watchProgressSeconds &&
-      currentVideo.watchProgressSeconds > 3 &&
-      !currentVideo.isCompleted
-    ) {
-      const dur = videoRef.current.duration;
-      if (dur > 0 && currentVideo.watchProgressSeconds < dur - 10) {
-        videoRef.current.currentTime = currentVideo.watchProgressSeconds;
-      }
-    }
-  };
-
-  // Track playback time and mark complete strictly at >= 95%
-  const handleTimeUpdate = () => {
-    const el = videoRef.current;
-    if (!el || !currentVideo) return;
-
-    const currentTime = el.currentTime;
-    const duration = el.duration;
-    if (!duration || duration <= 0) return;
-
-    const ratio = currentTime / duration;
-    const completedNow = ratio >= 0.95;
-
-    if (completedNow && !isCompleted) {
-      setIsCompleted(true);
-      api.updateWatchProgress({
-        relativePath: currentVideo.relativePath,
-        title: currentVideo.title,
-        channelName: currentVideo.channelName,
-        currentTime,
-        duration,
-      }).catch(console.error);
-
-      setVideos((prev) =>
-        prev.map((v) =>
-          v.relativePath === currentVideo.relativePath
-            ? { ...v, isCompleted: true }
-            : v
-        )
-      );
-    }
-  };
-
-  const handleEnded = () => {
-    if (videoRef.current && currentVideo && !isCompleted) {
-      setIsCompleted(true);
-      api.updateWatchProgress({
-        relativePath: currentVideo.relativePath,
-        title: currentVideo.title,
-        channelName: currentVideo.channelName,
-        currentTime: videoRef.current.duration || 999999,
-        duration: videoRef.current.duration || 999999,
-      }).catch(console.error);
-
-      setVideos((prev) =>
-        prev.map((v) =>
-          v.relativePath === currentVideo.relativePath
-            ? { ...v, isCompleted: true }
-            : v
-        )
-      );
-    }
-  };
-
   if (isLoading && !currentVideo) {
     return (
       <div className="flex items-center justify-center h-full py-24">
@@ -217,7 +249,7 @@ export function VideoPlayerTab() {
           <button
             type="button"
             onClick={() => navigate('/')}
-            className="btn btn-primary h-10 px-5 text-sm font-medium mt-4"
+            className="btn btn-primary h-10 px-5 text-sm font-medium mt-4 cursor-pointer"
           >
             Back to Home
           </button>
@@ -226,13 +258,15 @@ export function VideoPlayerTab() {
     );
   }
 
+  const isCompleted = currentVideo.isCompleted || globalCompleted;
+
   return (
     <div className="w-full min-h-full lg:h-full flex flex-col min-h-0 overflow-visible lg:overflow-hidden">
-      {/* 1. Header Row: Responsive layout - Desktop has aligned two-column headers, mobile has top Back button */}
+      {/* 1. Header Row: Responsive layout */}
       <div className="shrink-0 pt-1 pb-3">
         <div className="flex lg:grid lg:grid-cols-12 gap-6 items-center">
           {/* Left: Back to Home Button */}
-          <div className="lg:col-span-8 flex items-center">
+          <div className="lg:col-span-8 flex items-center justify-between">
             <button
               type="button"
               onClick={() => navigate('/')}
@@ -258,30 +292,233 @@ export function VideoPlayerTab() {
         <div className="lg:col-span-8 flex flex-col min-h-0 space-y-3 w-full">
           {/* Video Container (16:9 Cinema Aspect Ratio constrained responsively) */}
           <div className="relative aspect-video w-full max-h-[50vh] sm:max-h-[60vh] lg:max-h-[calc(100vh-17rem)] xl:max-h-[calc(100vh-15rem)] rounded-[var(--radius-md)] overflow-hidden bg-black shadow-lg border border-[var(--border)] shrink-0 flex items-center justify-center">
-            <video
-              key={currentVideo.streamUrl}
-              ref={videoRef}
-              src={currentVideo.streamUrl}
-              poster={currentVideo.thumbnailUrl}
-              controls
-              autoPlay
-              playsInline
-              onLoadedMetadata={handleLoadedMetadata}
-              onTimeUpdate={handleTimeUpdate}
-              onEnded={handleEnded}
-              className="w-full h-full object-contain"
-            >
-              {currentVideo.hasSubtitles && currentVideo.subtitleUrl && (
-                <track
-                  kind="subtitles"
-                  src={currentVideo.subtitleUrl}
-                  srcLang="en"
-                  label="English"
-                  default
-                />
-              )}
-              Your browser does not support HTML5 video playback.
-            </video>
+            {isAudioOnly ? (
+              <div className="relative w-full h-full bg-[var(--bg-surface)] text-[var(--text-primary)] p-4 sm:p-5 select-none flex flex-col justify-between border border-[var(--border)] overflow-hidden">
+                {/* Blurred Video Backdrop */}
+                {currentVideo.thumbnailUrl && (
+                  <div
+                    className="absolute inset-0 bg-cover bg-center opacity-10 blur-2xl pointer-events-none"
+                    style={{ backgroundImage: `url(${currentVideo.thumbnailUrl})` }}
+                  />
+                )}
+
+                {/* Top Header Row inside Podcast Frame */}
+                <div className="relative z-10 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-secondary)] font-mono">
+                      Podcast Mode • Audio Only
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={toggleAudioOnly}
+                    className="btn btn-secondary text-xs h-8 px-3 font-medium flex items-center gap-1.5 cursor-pointer shadow-xs"
+                    title="Switch back to Video Mode"
+                  >
+                    <Film className="h-3.5 w-3.5" />
+                    <span>Video Mode</span>
+                  </button>
+                </div>
+
+                {/* Center Artwork & Media Info */}
+                <div className="relative z-10 flex flex-col items-center justify-center my-auto py-1 space-y-2 text-center">
+                  <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-[var(--radius-md)] overflow-hidden bg-black shadow-lg border border-[var(--border)] shrink-0 flex items-center justify-center group">
+                    {currentVideo.thumbnailUrl ? (
+                      <img
+                        src={currentVideo.thumbnailUrl}
+                        alt={currentVideo.title}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <Headphones className="h-8 w-8 text-[var(--text-muted)]" />
+                    )}
+                    <div className="absolute inset-0 bg-black/25 flex items-center justify-center">
+                      <Headphones className="h-7 w-7 text-white drop-shadow-sm" />
+                    </div>
+                  </div>
+
+                  <div className="space-y-0.5 max-w-lg px-4">
+                    <h3
+                      className="font-bold text-sm sm:text-base text-[var(--text-primary)] line-clamp-1 leading-snug"
+                      title={currentVideo.title}
+                    >
+                      {currentVideo.title}
+                    </h3>
+                    <p className="text-xs text-[var(--text-secondary)] font-medium truncate">
+                      {currentVideo.channelName}
+                    </p>
+                  </div>
+
+                  {/* Equalizer Bars matching theme primary */}
+                  <div className="flex items-end gap-1 h-4 pt-0.5">
+                    {[40, 75, 95, 60, 100, 80, 45, 85, 65, 95, 50, 90].map((h, i) => (
+                      <span
+                        key={i}
+                        className={`w-1 rounded-full ${
+                          isPlaying
+                            ? 'bg-[var(--primary)] animate-bounce'
+                            : 'bg-[var(--text-muted)] opacity-40'
+                        }`}
+                        style={{
+                          height: isPlaying ? `${h}%` : '20%',
+                          animationDelay: `${(i * 0.12) - 1.4}s`,
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Bottom Full Controls Console */}
+                <div className="relative z-10 w-full max-w-xl mx-auto space-y-1.5 pt-2 border-t border-[var(--border)]">
+                  {/* Timeline Scrubber */}
+                  <div className="w-full flex items-center gap-2">
+                    <span className="text-[11px] font-mono text-[var(--text-muted)] w-10 text-right shrink-0 select-none">
+                      {formatTime(isPodcastScrubbing ? podcastScrubValue : currentTime)}
+                    </span>
+
+                    <div className="relative flex-1 flex items-center h-4 group/slider">
+                      <input
+                        type="range"
+                        min={0}
+                        max={duration || 100}
+                        step={0.5}
+                        value={isPodcastScrubbing ? podcastScrubValue : currentTime}
+                        onChange={(e) => {
+                          setPodcastScrubValue(parseFloat(e.target.value));
+                          setIsPodcastScrubbing(true);
+                        }}
+                        onMouseUp={() => {
+                          seekTo(podcastScrubValue);
+                          setIsPodcastScrubbing(false);
+                        }}
+                        onTouchEnd={() => {
+                          seekTo(podcastScrubValue);
+                          setIsPodcastScrubbing(false);
+                        }}
+                        className="w-full h-1.5 rounded-full appearance-none bg-[var(--bg-subtle)] border border-[var(--border)] accent-[var(--primary)] cursor-pointer hover:h-2 transition-all"
+                      />
+                    </div>
+
+                    <span className="text-[11px] font-mono text-[var(--text-muted)] w-10 text-left shrink-0 select-none">
+                      {formatTime(duration)}
+                    </span>
+                  </div>
+
+                  {/* Buttons Row */}
+                  <div className="flex items-center justify-between gap-2 px-1">
+                    {/* Left: Speed Button */}
+                    <div className="flex items-center gap-2 w-24">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const rates = [1, 1.25, 1.5, 2, 0.75];
+                          const idx = rates.indexOf(playbackRate);
+                          setPlaybackRate(rates[(idx + 1) % rates.length]);
+                        }}
+                        className="text-xs font-mono font-bold px-2 py-1 rounded-[var(--radius-sm)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
+                        title="Playback speed"
+                      >
+                        {playbackRate}x
+                      </button>
+                    </div>
+
+                    {/* Center: Prev, -10s, Play/Pause, +10s, Next */}
+                    <div className="flex items-center gap-1 sm:gap-2">
+                      <button
+                        type="button"
+                        onClick={playPrev}
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
+                        title="Previous / Restart"
+                      >
+                        <SkipBack className="h-4 w-4" />
+                      </button>
+
+                      {/* Rewind 10s: Clean side-by-side, no overlap */}
+                      <button
+                        type="button"
+                        onClick={() => seekBy(-10)}
+                        className="h-8 px-2 rounded-full text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer flex items-center gap-1 text-[11px] font-mono font-medium"
+                        title="Rewind 10 seconds (J / Left)"
+                      >
+                        <RotateCcw className="h-3.5 w-3.5 shrink-0" />
+                        <span>10s</span>
+                      </button>
+
+                      {/* Play / Pause */}
+                      <button
+                        type="button"
+                        onClick={togglePlay}
+                        className="w-10 h-10 rounded-full bg-[var(--primary)] text-[var(--primary-foreground)] hover:scale-105 active:scale-95 transition-all flex items-center justify-center shadow-md cursor-pointer mx-1 shrink-0"
+                        title={isPlaying ? 'Pause (Space / K)' : 'Play (Space / K)'}
+                      >
+                        {isPlaying ? (
+                          <Pause className="h-5 w-5 fill-current" />
+                        ) : (
+                          <Play className="h-5 w-5 fill-current ml-0.5" />
+                        )}
+                      </button>
+
+                      {/* Forward 10s: Clean side-by-side, no overlap */}
+                      <button
+                        type="button"
+                        onClick={() => seekBy(10)}
+                        className="h-8 px-2 rounded-full text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer flex items-center gap-1 text-[11px] font-mono font-medium"
+                        title="Forward 10 seconds (L / Right)"
+                      >
+                        <span>10s</span>
+                        <RotateCw className="h-3.5 w-3.5 shrink-0" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={playNext}
+                        disabled={upNextVideos.length === 0}
+                        className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
+                          upNextVideos.length > 0
+                            ? 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-subtle)] cursor-pointer'
+                            : 'text-[var(--text-muted)] opacity-30 cursor-not-allowed'
+                        }`}
+                        title={upNextVideos.length > 0 ? `Next: ${upNextVideos[0].title}` : 'No more videos'}
+                      >
+                        <SkipForward className="h-4 w-4" />
+                      </button>
+                    </div>
+
+                    {/* Right: Volume / Mute */}
+                    <div className="flex items-center justify-end gap-1.5 w-24">
+                      <button
+                        type="button"
+                        onClick={toggleMute}
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
+                        title={isMuted ? 'Unmute (M)' : 'Mute (M)'}
+                      >
+                        {isMuted || volume === 0 ? (
+                          <VolumeX className="h-4 w-4 text-rose-500" />
+                        ) : volume < 0.5 ? (
+                          <Volume1 className="h-4 w-4" />
+                        ) : (
+                          <Volume2 className="h-4 w-4" />
+                        )}
+                      </button>
+                      <input
+                        type="range"
+                        min={0}
+                        max={1}
+                        step={0.05}
+                        value={isMuted ? 0 : volume}
+                        onChange={(e) => setVolume(parseFloat(e.target.value))}
+                        className="w-14 h-1 rounded-full appearance-none bg-[var(--bg-subtle)] accent-[var(--primary)] cursor-pointer border border-[var(--border)] hidden sm:block"
+                        title={`Volume: ${Math.round(volume * 100)}%`}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div ref={cinemaContainerRef} className="w-full h-full flex items-center justify-center" />
+            )}
           </div>
 
           {/* Video Title */}
@@ -292,8 +529,8 @@ export function VideoPlayerTab() {
             {currentVideo.title}
           </h1>
 
-          {/* Channel Row: Logo, Name, and Details Popover */}
-          <div className="flex items-center justify-between gap-3 pb-3 border-b border-[var(--border)] shrink-0">
+          {/* Channel Row: Logo, Name, and Actions Row */}
+          <div className="flex items-center justify-between gap-3 pb-3 border-b border-[var(--border)] shrink-0 flex-wrap">
             {/* Channel Info */}
             <div className="flex items-center gap-3 min-w-0 flex-1">
               <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full overflow-hidden bg-[var(--bg-subtle)] border border-[var(--border)] shrink-0 flex items-center justify-center shadow-xs">
@@ -326,99 +563,134 @@ export function VideoPlayerTab() {
               </div>
             </div>
 
-            {/* Details Popover -> Anchored right to Details button */}
-            <Popover open={showDetailsPopover} onOpenChange={setShowDetailsPopover}>
-              <PopoverTrigger asChild>
+            {/* Right Action Buttons */}
+            <div className="flex items-center gap-2 shrink-0">
+              {/* Podcast / Audio-Only Toggle Button */}
+              <button
+                type="button"
+                onClick={toggleAudioOnly}
+                className={`btn text-xs sm:text-sm h-9 px-3.5 font-medium flex items-center gap-1.5 transition-all cursor-pointer ${
+                  isAudioOnly
+                    ? 'bg-[var(--primary)] text-[var(--primary-foreground)] shadow-xs'
+                    : 'btn-secondary text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                }`}
+                title={
+                  isAudioOnly
+                    ? 'Audio-Only Mode Active. Click to switch to video.'
+                    : 'Podcast Mode: Listen in Audio-Only (Saves GPU & Battery)'
+                }
+              >
+                <Headphones className="h-4 w-4" />
+                <span>{isAudioOnly ? 'Audio On' : 'Podcast Mode'}</span>
+              </button>
+
+              {/* PiP Button */}
+              {!isAudioOnly && (
                 <button
                   type="button"
-                  className="btn btn-secondary text-xs sm:text-sm h-9 px-3.5 sm:px-4 font-medium flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
-                  title="View video details"
+                  onClick={togglePiP}
+                  className={`btn btn-secondary text-xs sm:text-sm h-9 px-3 font-medium flex items-center gap-1.5 cursor-pointer ${
+                    isPiP ? 'bg-[var(--primary)] text-[var(--primary-foreground)]' : ''
+                  }`}
+                  title="Picture-in-Picture"
                 >
-                  <Info className="h-4 w-4" />
-                  <span>Details</span>
+                  <PictureInPicture2 className="h-4 w-4" />
                 </button>
-              </PopoverTrigger>
+              )}
 
-              <PopoverContent
-                align="end"
-                sideOffset={8}
-                className="w-[calc(100vw-2.5rem)] sm:w-80 max-w-sm p-4 space-y-3 shadow-xl border border-[var(--border)] bg-[var(--bg-surface)]"
-              >
-                <div className="flex items-center gap-2 border-b border-[var(--border)] pb-2.5">
-                  <Info className="h-4 w-4 text-[var(--text-primary)]" />
-                  <h4 className="font-semibold text-sm text-[var(--text-primary)]">Video Details</h4>
-                </div>
-
-                <div className="space-y-2 text-xs">
-                  {/* Duration */}
-                  {currentVideo.duration && (
-                    <div className="flex items-center justify-between p-2.5 rounded-[var(--radius-sm)] bg-[var(--bg-subtle)] border border-[var(--border)]">
-                      <div className="flex items-center gap-2 text-[var(--text-secondary)]">
-                        <Clock className="h-4 w-4 text-[var(--text-primary)]" />
-                        <span className="font-medium">Duration</span>
-                      </div>
-                      <span className="font-mono font-medium text-[var(--text-primary)]">
-                        {currentVideo.duration}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Space / File Size */}
-                  <div className="flex items-center justify-between p-2.5 rounded-[var(--radius-sm)] bg-[var(--bg-subtle)] border border-[var(--border)]">
-                    <div className="flex items-center gap-2 text-[var(--text-secondary)]">
-                      <HardDrive className="h-4 w-4 text-[var(--text-primary)]" />
-                      <span className="font-medium">Space</span>
-                    </div>
-                    <span className="font-mono font-medium text-[var(--text-primary)]">
-                      {formatBytes(currentVideo.size)}
-                    </span>
-                  </div>
-
-                  {/* Downloaded Date */}
-                  <div className="flex items-center justify-between p-2.5 rounded-[var(--radius-sm)] bg-[var(--bg-subtle)] border border-[var(--border)]">
-                    <div className="flex items-center gap-2 text-[var(--text-secondary)]">
-                      <Calendar className="h-4 w-4 text-[var(--text-primary)]" />
-                      <span className="font-medium">Downloaded Date</span>
-                    </div>
-                    <span className="font-mono font-medium text-[var(--text-primary)]">
-                      {formatDate(currentVideo.lastModified)}
-                    </span>
-                  </div>
-
-                  {/* Format */}
-                  <div className="flex items-center justify-between p-2.5 rounded-[var(--radius-sm)] bg-[var(--bg-subtle)] border border-[var(--border)]">
-                    <div className="flex items-center gap-2 text-[var(--text-secondary)]">
-                      <FileCode className="h-4 w-4 text-[var(--text-primary)]" />
-                      <span className="font-medium">Format</span>
-                    </div>
-                    <span className="type-pill font-mono font-medium text-[11px] py-0.5 px-2">
-                      {currentVideo.format}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Delete Action Button inside Popover */}
-                <div className="pt-2 border-t border-[var(--border)]">
+              {/* Details Popover -> Anchored right to Details button */}
+              <Popover open={showDetailsPopover} onOpenChange={setShowDetailsPopover}>
+                <PopoverTrigger asChild>
                   <button
                     type="button"
-                    onClick={() => {
-                      setShowDetailsPopover(false);
-                      setShowDeleteConfirm(true);
-                    }}
-                    className="w-full btn text-xs h-9 px-3 font-medium bg-rose-600 text-white hover:bg-rose-700 flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
+                    className="btn btn-secondary text-xs sm:text-sm h-9 px-3.5 sm:px-4 font-medium flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
+                    title="View video details"
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
-                    <span>Delete Video</span>
+                    <Info className="h-4 w-4" />
+                    <span>Details</span>
                   </button>
-                </div>
-              </PopoverContent>
-            </Popover>
+                </PopoverTrigger>
+
+                <PopoverContent
+                  align="end"
+                  sideOffset={8}
+                  className="w-[calc(100vw-2.5rem)] sm:w-80 max-w-sm p-4 space-y-3 shadow-xl border border-[var(--border)] bg-[var(--bg-surface)]"
+                >
+                  <div className="flex items-center gap-2 border-b border-[var(--border)] pb-2.5">
+                    <Info className="h-4 w-4 text-[var(--text-primary)]" />
+                    <h4 className="font-semibold text-sm text-[var(--text-primary)]">Video Details</h4>
+                  </div>
+
+                  <div className="space-y-2 text-xs">
+                    {/* Duration */}
+                    {currentVideo.duration && (
+                      <div className="flex items-center justify-between p-2.5 rounded-[var(--radius-sm)] bg-[var(--bg-subtle)] border border-[var(--border)]">
+                        <div className="flex items-center gap-2 text-[var(--text-secondary)]">
+                          <Clock className="h-4 w-4 text-[var(--text-primary)]" />
+                          <span className="font-medium">Duration</span>
+                        </div>
+                        <span className="font-mono font-medium text-[var(--text-primary)]">
+                          {currentVideo.duration}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Space / File Size */}
+                    <div className="flex items-center justify-between p-2.5 rounded-[var(--radius-sm)] bg-[var(--bg-subtle)] border border-[var(--border)]">
+                      <div className="flex items-center gap-2 text-[var(--text-secondary)]">
+                        <HardDrive className="h-4 w-4 text-[var(--text-primary)]" />
+                        <span className="font-medium">Space</span>
+                      </div>
+                      <span className="font-mono font-medium text-[var(--text-primary)]">
+                        {formatBytes(currentVideo.size)}
+                      </span>
+                    </div>
+
+                    {/* Downloaded Date */}
+                    <div className="flex items-center justify-between p-2.5 rounded-[var(--radius-sm)] bg-[var(--bg-subtle)] border border-[var(--border)]">
+                      <div className="flex items-center gap-2 text-[var(--text-secondary)]">
+                        <Calendar className="h-4 w-4 text-[var(--text-primary)]" />
+                        <span className="font-medium">Downloaded Date</span>
+                      </div>
+                      <span className="font-mono font-medium text-[var(--text-primary)]">
+                        {formatDate(currentVideo.lastModified)}
+                      </span>
+                    </div>
+
+                    {/* Format */}
+                    <div className="flex items-center justify-between p-2.5 rounded-[var(--radius-sm)] bg-[var(--bg-subtle)] border border-[var(--border)]">
+                      <div className="flex items-center gap-2 text-[var(--text-secondary)]">
+                        <FileCode className="h-4 w-4 text-[var(--text-primary)]" />
+                        <span className="font-medium">Format</span>
+                      </div>
+                      <span className="type-pill font-mono font-medium text-[11px] py-0.5 px-2">
+                        {currentVideo.format}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Delete Action Button inside Popover */}
+                  <div className="pt-2 border-t border-[var(--border)]">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowDetailsPopover(false);
+                        setShowDeleteConfirm(true);
+                      }}
+                      className="w-full btn text-xs h-9 px-3 font-medium bg-rose-600 text-white hover:bg-rose-700 flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      <span>Delete Video</span>
+                    </button>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
           </div>
         </div>
 
-        {/* Right Column: Suggested Videos Sidebar (Independent scroll on desktop, stacked below on mobile) */}
+        {/* Right Column: Suggested Videos Sidebar */}
         <div className="lg:col-span-4 flex flex-col min-h-0 lg:h-full lg:overflow-hidden w-full mt-2 lg:mt-0">
-          {/* Mobile/Tablet Section Header (hidden on desktop where it's at top) */}
           <div className="lg:hidden flex items-center justify-between pb-2 mb-3 border-b border-[var(--border)]">
             <h3 className="font-semibold text-sm sm:text-base text-[var(--text-primary)]">
               Up Next ({upNextVideos.length})
@@ -449,58 +721,27 @@ export function VideoPlayerTab() {
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                       onError={(e) => {
                         (e.target as HTMLImageElement).src =
-                          'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="160" height="90" viewBox="0 0 160 90" fill="%2318181b"><rect width="160" height="90" fill="%2318181b"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%2371717a" font-family="sans-serif" font-size="10 font-weight="bold">Video</text></svg>';
+                          'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180" fill="%23111"><rect width="320" height="180" fill="%2318181b"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%2371717a" font-family="sans-serif" font-size="14" font-weight="bold">Media Video</text></svg>';
                       }}
                     />
-                    {/* Watched Badge (Top-Left) */}
-                    {item.isCompleted && (
-                      <div className="absolute top-1 left-1 bg-black/85 backdrop-blur-xs text-white text-[8px] font-semibold tracking-wider uppercase px-1 py-0.5 rounded-[3px] border border-white/10 flex items-center gap-0.5 pointer-events-none">
-                        <Check className="h-2.5 w-2.5 text-emerald-400" />
-                        <span>Watched</span>
-                      </div>
-                    )}
-                    {/* Thumbnail Badges */}
-                    <div className="absolute bottom-1 right-1 flex items-center gap-1 pointer-events-none">
-                      <span className="bg-black/85 backdrop-blur-xs text-white text-[9px] font-mono font-medium px-1 rounded">
-                        {item.format}
-                      </span>
-                      {item.duration && (
-                        <span className="bg-black/90 backdrop-blur-xs text-white text-[9px] font-mono font-semibold px-1 rounded">
-                          {item.duration}
-                        </span>
-                      )}
-                    </div>
-                    {/* Watch Progress Bar (Bottom edge) */}
-                    {typeof item.watchProgressPercentage === 'number' && item.watchProgressPercentage > 0 && (
-                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-black/60 overflow-hidden pointer-events-none">
-                        <div
-                          className="h-full bg-red-600 transition-all duration-300"
-                          style={{ width: `${Math.min(100, item.isCompleted ? 100 : item.watchProgressPercentage)}%` }}
-                        />
+                    {item.duration && (
+                      <div className="absolute bottom-1.5 right-1.5 bg-black/85 backdrop-blur-xs text-white text-[10px] font-mono font-medium px-1.5 py-0.5 rounded-[3px] pointer-events-none">
+                        {item.duration}
                       </div>
                     )}
                   </div>
 
-                  {/* Title & Metadata */}
-                  <div className="min-w-0 flex-1 space-y-1">
+                  {/* Title and Channel Info */}
+                  <div className="min-w-0 flex-1 flex flex-col justify-start py-0.5">
                     <h4
-                      className="font-medium text-xs sm:text-sm text-[var(--text-primary)] line-clamp-2 leading-snug group-hover:text-[var(--text-primary)]"
+                      className="font-semibold text-xs sm:text-sm text-[var(--text-primary)] group-hover:text-[var(--primary)] transition-colors line-clamp-2 leading-snug"
                       title={item.title}
                     >
                       {item.title}
                     </h4>
-                    <p className="text-xs text-[var(--text-secondary)] font-medium truncate">
+                    <p className="text-[11px] sm:text-xs text-[var(--text-secondary)] mt-1 truncate">
                       {item.channelName}
                     </p>
-                    <div className="flex items-center gap-2 text-[11px] font-mono text-[var(--text-muted)]">
-                      <span>{formatBytes(item.size)}</span>
-                      {item.duration && (
-                        <>
-                          <span>•</span>
-                          <span>{item.duration}</span>
-                        </>
-                      )}
-                    </div>
                   </div>
                 </div>
               ))}
@@ -509,13 +750,13 @@ export function VideoPlayerTab() {
         </div>
       </div>
 
-      {/* Delete Confirmation Alert Dialog (Shadcn Alert Dialog) */}
+      {/* Delete Confirmation Alert Dialog */}
       <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-rose-600">
               <AlertTriangle className="h-5 w-5 shrink-0" />
-              Delete Video File?
+              Delete Video from Device?
             </AlertDialogTitle>
             <AlertDialogDescription>
               Are you sure you want to delete <strong>"{currentVideo.title}"</strong>? This will permanently remove the media file from your storage disk.
@@ -523,16 +764,14 @@ export function VideoPlayerTab() {
           </AlertDialogHeader>
 
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>
-              Cancel
-            </AlertDialogCancel>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
                 e.preventDefault();
                 handleDeleteVideo();
               }}
               disabled={isDeleting}
-              className="bg-rose-600 text-white hover:bg-rose-700 font-medium"
+              className="bg-rose-600 text-white hover:bg-rose-700 font-medium cursor-pointer"
             >
               {isDeleting ? 'Deleting...' : 'Delete Permanently'}
             </AlertDialogAction>

@@ -30,6 +30,7 @@ import {
   AlertDialogCancel,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { usePlayer } from '@/context/PlayerContext';
 
 interface WatchedVideoItem extends MediaVideoItem {
   lastWatchedAt?: string;
@@ -38,6 +39,7 @@ interface WatchedVideoItem extends MediaVideoItem {
 export function HistoryTab() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { playVideo } = usePlayer();
 
   const [watchedVideos, setWatchedVideos] = useState<WatchedVideoItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -405,6 +407,14 @@ export function HistoryTab() {
               key={video.id}
               video={video}
               onClick={() => navigate(`/watch?path=${encodeURIComponent(video.relativePath)}`)}
+              onPlayInBackground={(v) => {
+                playVideo(v, filteredAndSortedVideos);
+                toast({
+                  variant: 'success',
+                  title: 'Playing in background',
+                  description: `"${v.title}" is now playing in the background.`,
+                });
+              }}
               onRemoveFromHistory={(v) => setHistoryItemToRemove(v)}
               onDeleteFromDevice={(v) => setVideoToDelete(v)}
             />

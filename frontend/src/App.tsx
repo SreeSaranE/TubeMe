@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { ThemeProvider } from '@/context/ThemeContext';
+import { PlayerProvider, usePlayer } from '@/context/PlayerContext';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { Toaster } from '@/components/ui/toaster';
 import { AppSidebar } from '@/components/AppSidebar';
@@ -13,6 +14,7 @@ import { HistoryTab } from '@/components/HistoryTab';
 import { PlaylistsTab } from '@/components/PlaylistsTab';
 import { StatisticsTab } from '@/components/StatisticsTab';
 import { SettingsTab } from '@/components/SettingsTab';
+import { GlobalBottomPlayer } from '@/components/GlobalBottomPlayer';
 import { api, createSignalRConnection } from '@/services/api';
 import {
   ChannelModel,
@@ -25,6 +27,7 @@ import {
 function AppContent() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { currentVideo } = usePlayer();
   const isWatchPage = location.pathname === '/watch';
   const [channels, setChannels] = useState<ChannelModel[]>([]);
   const [downloads, setDownloads] = useState<DownloadItem[]>([]);
@@ -140,23 +143,26 @@ function AppContent() {
   ).length;
 
   return (
-    <div className="h-screen bg-[var(--bg-app)] text-[var(--text-primary)] flex w-full font-sans antialiased overflow-hidden">
-      <AppSidebar
-        channelsCount={channels.length}
-        activeDownloadsCount={activeDownloadsCount}
-      />
+    <div className="h-screen bg-[var(--bg-app)] text-[var(--text-primary)] flex w-full font-sans antialiased overflow-hidden flex-col">
+      <div className="flex-1 min-h-0 flex w-full overflow-hidden">
+        <AppSidebar
+          channelsCount={channels.length}
+          activeDownloadsCount={activeDownloadsCount}
+        />
 
-      <main
-        className={`flex-1 min-w-0 w-full px-4 pt-6 pb-6 sm:px-6 sm:pt-8 sm:pb-8 lg:px-8 lg:pt-8 lg:pb-8 ${
-          isWatchPage
-            ? 'h-screen overflow-y-auto lg:overflow-hidden flex flex-col'
-            : 'h-screen overflow-y-auto'
-        }`}
-      >
-        <div className="md:hidden mb-3 shrink-0">
-          <SidebarTrigger />
-        </div>
-        <Routes>
+        <main
+          className={`flex-1 min-w-0 w-full px-4 pt-6 sm:px-6 sm:pt-8 lg:px-8 lg:pt-8 ${
+            isWatchPage
+              ? 'h-full overflow-y-auto lg:overflow-hidden flex flex-col pb-6 sm:pb-8 lg:pb-8'
+              : currentVideo
+              ? 'h-full overflow-y-auto pb-28 sm:pb-28'
+              : 'h-full overflow-y-auto pb-6 sm:pb-8 lg:pb-8'
+          }`}
+        >
+          <div className="md:hidden mb-3 shrink-0">
+            <SidebarTrigger />
+          </div>
+          <Routes>
             {/* 1. Home Feed (YouTube-style video library grid) */}
             <Route path="/" element={<HomeTab />} />
 
@@ -223,6 +229,10 @@ function AppContent() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>
+      </div>
+
+      {/* Global Persistent Bottom Mini-Player Bar */}
+      <GlobalBottomPlayer />
     </div>
   );
 }
@@ -232,8 +242,10 @@ export function App() {
     <ThemeProvider>
       <BrowserRouter>
         <SidebarProvider defaultOpen={true}>
-          <AppContent />
-          <Toaster />
+          <PlayerProvider>
+            <AppContent />
+            <Toaster />
+          </PlayerProvider>
         </SidebarProvider>
       </BrowserRouter>
     </ThemeProvider>

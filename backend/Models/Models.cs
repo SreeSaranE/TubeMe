@@ -175,6 +175,16 @@ namespace YoutubeDownloader.Models
         public double Duration { get; set; }
     }
 
+    public class WatchTimeLedgerItem
+    {
+        public string Id { get; set; } = string.Empty;
+        public string VideoIdentifier { get; set; } = string.Empty;
+        public string Title { get; set; } = string.Empty;
+        public string ChannelName { get; set; } = "Local Media";
+        public double DurationSeconds { get; set; }
+        public DateTime LoggedAt { get; set; }
+    }
+
     public class PlaylistModel
     {
         public string Id { get; set; } = string.Empty;

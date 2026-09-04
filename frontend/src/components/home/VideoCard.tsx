@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Play, Tv, Check, MoreVertical, CheckCircle2, Trash2, RotateCcw, ListPlus } from 'lucide-react';
+import { Play, Tv, Check, MoreVertical, CheckCircle2, Trash2, RotateCcw, ListPlus, Headphones } from 'lucide-react';
 import { MediaVideoItem } from '@/types';
 import { formatDate } from '@/lib/utils';
 import {
@@ -11,6 +11,7 @@ import {
 interface VideoCardProps {
   video: MediaVideoItem;
   onClick: () => void;
+  onPlayInBackground?: (video: MediaVideoItem) => void;
   onMarkAsWatched?: (video: MediaVideoItem) => void;
   onAddToPlaylist?: (video: MediaVideoItem) => void;
   onDeleteFromDevice?: (video: MediaVideoItem) => void;
@@ -20,6 +21,7 @@ interface VideoCardProps {
 export function VideoCard({
   video,
   onClick,
+  onPlayInBackground,
   onMarkAsWatched,
   onAddToPlaylist,
   onDeleteFromDevice,
@@ -36,7 +38,7 @@ export function VideoCard({
   };
 
   const hasMenuActions = Boolean(
-    onMarkAsWatched || onAddToPlaylist || onDeleteFromDevice || onRemoveFromHistory
+    onPlayInBackground || onMarkAsWatched || onAddToPlaylist || onDeleteFromDevice || onRemoveFromHistory
   );
 
   return (
@@ -156,6 +158,21 @@ export function VideoCard({
                 className="w-48 p-1.5 bg-[var(--bg-surface)] border border-[var(--border)] shadow-xl rounded-[var(--radius-md)] text-xs space-y-0.5"
                 onClick={(e) => e.stopPropagation()}
               >
+                {onPlayInBackground && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsMenuOpen(false);
+                      onPlayInBackground(video);
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:bg-[var(--bg-subtle)] rounded-[var(--radius-sm)] transition-colors text-left cursor-pointer"
+                  >
+                    <Headphones className="h-4 w-4 text-emerald-500 shrink-0" />
+                    <span>Play in background</span>
+                  </button>
+                )}
+
                 {onAddToPlaylist && (
                   <button
                     type="button"
